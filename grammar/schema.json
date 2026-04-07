@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SierpSphere Grammar",
+  "description": "A DSL for defining fractal-like sphere structures via iterative Boolean operations along polyhedral symmetry axes.",
+  "type": "object",
+  "required": ["seed", "iterations"],
+  "properties": {
+    "seed": {
+      "type": "object",
+      "description": "The initial primitive (Step 0).",
+      "required": ["type", "radius"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["sphere", "cube", "octahedron"],
+          "default": "sphere"
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Radius of the seed sphere (or half-extent for cube)."
+        },
+        "center": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3,
+          "default": [0, 0, 0]
+        }
+      }
+    },
+    "symmetry_group": {
+      "type": "string",
+      "enum": ["tetrahedral", "octahedral", "icosahedral"],
+      "default": "tetrahedral",
+      "description": "Polyhedral symmetry defining the axes of expansion."
+    },
+    "iterations": {
+      "type": "array",
+      "description": "Ordered list of iterative steps applied to the current SDF.",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["operation", "scale_factor"],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["subtract", "add", "intersect"],
+            "description": "Boolean operation: subtract carves, add unions, intersect keeps overlap."
+          },
+          "primitive": {
+            "type": "string",
+            "enum": ["sphere", "cube", "octahedron"],
+            "default": "sphere"
+          },
+          "scale_factor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1,
+            "description": "Size of child primitives relative to parent radius."
+          },
+          "distance_factor": {
+            "type": "number",
+            "default": 1.0,
+            "description": "How far along the symmetry axis to place children (1.0 = at vertex of inscribed polyhedron)."
+          },
+          "smooth_radius": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0.0,
+            "description": "Blending radius for smooth Boolean (0 = sharp)."
+          },
+          "apply_to": {
+            "type": "string",
+            "enum": ["all", "surface", "new"],
+            "default": "all",
+            "description": "Which existing nodes receive this operation: all, only surface-level, or only newly added."
+          }
+        }
+      }
+    },
+    "render": {
+      "type": "object",
+      "description": "Rendering hints for the visualization layer.",
+      "properties": {
+        "resolution": {
+          "type": "integer",
+          "minimum": 32,
+          "maximum": 512,
+          "default": 128,
+          "description": "Marching cubes grid resolution per axis."
+        },
+        "bounds": {
+          "type": "number",
+          "default": 2.0,
+          "description": "Half-extent of the sampling volume."
+        },
+        "color_mode": {
+          "type": "string",
+          "enum": ["depth", "iteration", "normal", "solid"],
+          "default": "iteration",
+          "description": "How to color the surface."
+        }
+      }
+    }
+  }
+}

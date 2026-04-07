@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SierpSphere</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; overflow: hidden; font-family: 'Courier New', monospace; color: #8af; }
+  canvas { display: block; }
+  #menubar {
+    position: fixed; top: 0; left: 0; right: 0; height: 40px; z-index: 20;
+    background: rgba(8,8,18,0.95); border-bottom: 1px solid #224;
+    display: flex; align-items: center; gap: 4px; padding: 0 12px;
+  }
+  #menubar .title { color: #adf; font-size: 14px; font-weight: bold; margin-right: 16px; }
+  #menubar .sep { width: 1px; height: 20px; background: #224; margin: 0 6px; }
+  #preset-btn {
+    padding: 4px 10px; background: #1a3a6a; color: #adf;
+    border: 1px solid #4a7aba; border-radius: 4px; cursor: pointer;
+    font-family: inherit; font-size: 12px;
+  }
+  #preset-btn:hover { background: #2a5a9a; }
+  #preset-dropdown {
+    display: none; position: absolute; top: 100%; left: 0; min-width: 220px;
+    background: rgba(8,8,18,0.98); border: 1px solid #335; border-radius: 4px;
+    z-index: 100; margin-top: 2px; overflow: hidden;
+  }
+  #preset-dropdown.open { display: block; }
+  #preset-dropdown .item {
+    padding: 8px 14px; cursor: pointer; font-size: 12px; color: #8af;
+    border-bottom: 1px solid #1a2a3a;
+  }
+  #preset-dropdown .item:last-child { border-bottom: none; }
+  #preset-dropdown .item:hover { background: #1a3a6a; color: #adf; }
+  #preset-dropdown .item.active { color: #6cf; background: #112a4a; }
+  #active-preset { font-size: 12px; color: #6cf; margin-left: 8px; }
+  .menu-action {
+    padding: 4px 10px; background: transparent; color: #8af;
+    border: 1px solid #335; border-radius: 4px; cursor: pointer;
+    font-family: inherit; font-size: 12px;
+  }
+  .menu-action:hover { background: #1a2a3a; color: #adf; }
+  #status { margin-left: auto; font-size: 11px; color: #557; }
+  #panel {
+    position: fixed; top: 48px; right: 12px; z-index: 10;
+    background: rgba(8,8,18,0.92); border: 1px solid #224;
+    border-radius: 6px; padding: 14px; font-size: 12px; min-width: 220px;
+  }
+  #panel label { display: block; margin: 8px 0 2px; color: #adf; }
+  #panel input[type=range] { width: 100%; accent-color: #4a7aba; }
+  #panel .val { float: right; color: #6cf; }
+  #panel .section { color: #557; font-size: 10px; margin: 12px 0 4px;
+    text-transform: uppercase; letter-spacing: 1px; }
+  #panel select {
+    width: 100%; background: #112; color: #8af; border: 1px solid #335;
+    border-radius: 3px; padding: 3px; font-family: inherit; font-size: 12px;
+  }
+  #panel .grammar-view {
+    margin-top: 10px; font-size: 10px; color: #446; line-height: 1.6;
+    max-height: 120px; overflow-y: auto; border-top: 1px solid #1a2a3a; padding-top: 8px;
+  }
+  #panel .grammar-view .iter-row { display: flex; gap: 6px; align-items: center; }
+  #panel .grammar-view .tag { padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: bold; }
+  #panel .grammar-view .tag.sub { background: #3a1010; color: #f86; }
+  #panel .grammar-view .tag.add { background: #0a2a1a; color: #6f8; }
+  #panel .grammar-view .tag.int { background: #1a1a3a; color: #88f; }
+  #info { position: fixed; bottom: 12px; left: 12px; font-size: 11px; color: #446; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="menubar">
+  <span class="title">SierpSphere</span>
+  <div class="sep"></div>
+  <div style="position:relative">
+    <button id="preset-btn">Presets &#9662;</button>
+    <div id="preset-dropdown"></div>
+  </div>
+  <span id="active-preset">-</span>
+  <div class="sep"></div>
+  <button class="menu-action" id="btn-apply">Apply custom</button>
+  <button class="menu-action" id="btn-mesh">Download GLB</button>
+  <span id="status"></span>
+</div>
+
+<div id="panel">
+  <div class="section">Custom grammar</div>
+  <label>Symmetry <span class="val" id="sym-val">tetrahedral</span></label>
+  <select id="sym-select">
+    <option value="tetrahedral">Tetrahedral (4)</option>
+    <option value="octahedral">Octahedral (6)</option>
+    <option value="icosahedral">Icosahedral (12)</option>
+  </select>
+  <label>Iterations <span class="val" id="iter-val">3</span></label>
+  <input type="range" id="iter-range" min="1" max="5" value="3" step="1">
+  <label>Scale factor <span class="val" id="sf-val">0.50</span></label>
+  <input type="range" id="sf-range" min="0.2" max="0.6" value="0.5" step="0.01">
+  <label>Mesh resolution <span class="val" id="res-val">64</span></label>
+  <input type="range" id="res-range" min="32" max="160" value="64" step="8">
+  <div class="section">Active grammar</div>
+  <div id="grammar-view" class="grammar-view">-</div>
+</div>
+
+<div id="info">Drag to orbit - Scroll to zoom</div>
+
+<script type="module">
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.min.js';
+
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : `http://${window.location.hostname}:5000`;
+
+// ── Symmetry vertices ────────────────────────────────────────────────
+const SYM = {
+  tetrahedral() {
+    const s = 1/Math.sqrt(3);
+    return [[s,s,s],[s,-s,-s],[-s,s,-s],[-s,-s,s]];
+  },
+  octahedral() {
+    return [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  },
+  icosahedral() {
+    const phi = (1+Math.sqrt(5))/2, v = [];
+    for (const s1 of [-1,1]) for (const s2 of [-1,1])
+      v.push([0,s1,s2*phi],[s1,s2*phi,0],[s2*phi,0,s1]);
+    const len = Math.sqrt(1+phi*phi);
+    return v.map(p => p.map(c => c/len));
+  },
+};
+
+// ── SDF primitives & smooth Booleans ─────────────────────────────────
+function sdfSphere(px, py, pz, cx, cy, cz, r) {
+  const dx = px-cx, dy = py-cy, dz = pz-cz;
+  return Math.sqrt(dx*dx + dy*dy + dz*dz) - r;
+}
+
+function smoothUnion(d1, d2, k) {
+  if (k <= 0) return Math.min(d1, d2);
+  const h = Math.max(0, Math.min(1, 0.5 + 0.5*(d2-d1)/k));
+  return d2*(1-h) + d1*h - k*h*(1-h);
+}
+function smoothSub(d1, d2, k) {
+  // subtract d1 from d2
+  if (k <= 0) return Math.max(-d1, d2);
+  const h = Math.max(0, Math.min(1, 0.5 - 0.5*(d2+d1)/k));
+  return d2*(1-h) + (-d1)*h + k*h*(1-h);
+}
+function smoothIntersect(d1, d2, k) {
+  if (k <= 0) return Math.max(d1, d2);
+  const h = Math.max(0, Math.min(1, 0.5 - 0.5*(d2-d1)/k));
+  return d2*(1-h) + d1*h + k*h*(1-h);
+}
+
+const BOOL_OPS = { subtract: smoothSub, add: smoothUnion, intersect: smoothIntersect };
+
+// ── Build flat operation list from grammar ────────────────────────────
+function buildOps(grammar) {
+  const verts = SYM[grammar.symmetry_group || 'tetrahedral']();
+  const iters = grammar.iterations || [];
+  const ops = []; // [{boolFn, cx,cy,cz, r, k}]
+  let active = [{ cx: 0, cy: 0, cz: 0, r: grammar.seed.radius }];
+  const seedC = grammar.seed.center || [0,0,0];
+  active[0].cx = seedC[0]; active[0].cy = seedC[1]; active[0].cz = seedC[2];
+
+  for (const it of iters) {
+    const boolFn = BOOL_OPS[it.operation];
+    const sf = it.scale_factor;
+    const df = it.distance_factor ?? 1.0;
+    const sk = it.smooth_radius ?? 0.0;
+    const newActive = [];
+
+    for (const p of active) {
+      const childR = p.r * sf;
+      // Parent's outward direction from seed center
+      const pdx = p.cx - seedC[0], pdy = p.cy - seedC[1], pdz = p.cz - seedC[2];
+      const plen = Math.sqrt(pdx*pdx + pdy*pdy + pdz*pdz) || 1;
+
+      for (const v of verts) {
+        // For "add": skip the outward-pointing vertex (aligned with
+        // parent's direction from seed). Keeps only the 3 that point
+        // inward toward the remaining surface.
+        if (it.operation === 'add') {
+          const dot = (v[0]*pdx + v[1]*pdy + v[2]*pdz) / plen;
+          if (dot > 0.5) continue;
+        }
+
+        const cx = p.cx + v[0]*p.r*df;
+        const cy = p.cy + v[1]*p.r*df;
+        const cz = p.cz + v[2]*p.r*df;
+        ops.push({ boolFn, cx, cy, cz, r: childR, k: sk });
+        newActive.push({ cx, cy, cz, r: childR });
+      }
+    }
+
+    // Default: each step expands only from previous step's children,
+    // so sf/df are always relative to the previous level.
+    const applyTo = it.apply_to || 'new';
+    if (applyTo === 'all') active = active.concat(newActive);
+    else active = newActive;
+  }
+  return ops;
+}
+
+// ── Evaluate SDF at a point ──────────────────────────────────────────
+function evalSDF(ops, seedR, seedC, px, py, pz) {
+  let d = sdfSphere(px, py, pz, seedC[0], seedC[1], seedC[2], seedR);
+  for (let i = 0; i < ops.length; i++) {
+    const o = ops[i];
+    const dc = sdfSphere(px, py, pz, o.cx, o.cy, o.cz, o.r);
+    d = o.boolFn(dc, d, o.k);
+  }
+  return d;
+}
+
+// ── Marching Cubes ───────────────────────────────────────────────────
+// Edge table and triangle table (standard MC lookup tables, compressed)
+const MC_EDGE = new Uint16Array([0x0,0x109,0x203,0x30a,0x406,0x50f,0x605,0x70c,0x80c,0x905,0xa0f,0xb06,0xc0a,0xd03,0xe09,0xf00,0x190,0x99,0x393,0x29a,0x596,0x49f,0x795,0x69c,0x99c,0x895,0xb9f,0xa96,0xd9a,0xc93,0xf99,0xe90,0x230,0x339,0x33,0x13a,0x636,0x73f,0x435,0x53c,0xa3c,0xb35,0x83f,0x936,0xe3a,0xf33,0xc39,0xd30,0x3a0,0x2a9,0x1a3,0xaa,0x7a6,0x6af,0x5a5,0x4ac,0xbac,0xaa5,0x9af,0x8a6,0xfaa,0xea3,0xda9,0xca0,0x460,0x569,0x663,0x76a,0x66,0x16f,0x265,0x36c,0xc6c,0xd65,0xe6f,0xf66,0x86a,0x963,0xa69,0xb60,0x5f0,0x4f9,0x7f3,0x6fa,0x1f6,0xff,0x3f5,0x2fc,0xdfc,0xcf5,0xfff,0xef6,0x9fa,0x8f3,0xbf9,0xaf0,0x650,0x759,0x453,0x55a,0x256,0x35f,0x55,0x15c,0xe5c,0xf55,0xc5f,0xd56,0xa5a,0xb53,0x859,0x950,0x7c0,0x6c9,0x5c3,0x4ca,0x3c6,0x2cf,0x1c5,0xcc,0xfcc,0xec5,0xdcf,0xcc6,0xbca,0xac3,0x9c9,0x8c0,0x8c0,0x9c9,0xac3,0xbca,0xcc6,0xdcf,0xec5,0xfcc,0xcc,0x1c5,0x2cf,0x3c6,0x4ca,0x5c3,0x6c9,0x7c0,0x950,0x859,0xb53,0xa5a,0xd56,0xc5f,0xf55,0xe5c,0x15c,0x55,0x35f,0x256,0x55a,0x453,0x759,0x650,0xaf0,0xbf9,0x8f3,0x9fa,0xef6,0xfff,0xcf5,0xdfc,0x2fc,0x3f5,0xff,0x1f6,0x6fa,0x7f3,0x4f9,0x5f0,0xb60,0xa69,0x963,0x86a,0xf66,0xe6f,0xd65,0xc6c,0x36c,0x265,0x16f,0x66,0x76a,0x663,0x569,0x460,0xca0,0xda9,0xea3,0xfaa,0x8a6,0x9af,0xaa5,0xbac,0x4ac,0x5a5,0x6af,0x7a6,0xaa,0x1a3,0x2a9,0x3a0,0xd30,0xc39,0xf33,0xe3a,0x936,0x83f,0xb35,0xa3c,0x53c,0x435,0x73f,0x636,0x13a,0x33,0x339,0x230,0xe90,0xf99,0xc93,0xd9a,0xa96,0xb9f,0x895,0x99c,0x69c,0x795,0x49f,0x596,0x29a,0x393,0x99,0x190,0xf00,0xe09,0xd03,0xc0a,0xb06,0xa0f,0x905,0x80c,0x70c,0x605,0x50f,0x406,0x30a,0x203,0x109,0x0]);
+const MC_TRI_DATA = "-1;0,8,3,-1;0,1,9,-1;1,8,3,9,8,1,-1;1,2,10,-1;0,8,3,1,2,10,-1;9,2,10,0,2,9,-1;2,8,3,2,10,8,10,9,8,-1;3,11,2,-1;0,11,2,8,11,0,-1;1,9,0,2,3,11,-1;1,11,2,1,9,11,9,8,11,-1;3,10,1,11,10,3,-1;0,10,1,0,8,10,8,11,10,-1;3,9,0,3,11,9,11,10,9,-1;9,8,10,10,8,11,-1;4,7,8,-1;4,3,0,7,3,4,-1;0,1,9,8,4,7,-1;4,1,9,4,7,1,7,3,1,-1;1,2,10,8,4,7,-1;3,4,7,3,0,4,1,2,10,-1;9,2,10,9,0,2,8,4,7,-1;2,10,9,2,9,7,2,7,3,7,9,4,-1;8,4,7,3,11,2,-1;11,4,7,11,2,4,2,0,4,-1;9,0,1,8,4,7,2,3,11,-1;4,7,11,9,4,11,9,11,2,9,2,1,-1;3,10,1,3,11,10,7,8,4,-1;1,11,10,1,4,11,1,0,4,7,11,4,-1;4,7,8,9,0,11,9,11,10,11,0,3,-1;4,7,11,4,11,9,9,11,10,-1;9,5,4,-1;9,5,4,0,8,3,-1;0,5,4,1,5,0,-1;8,5,4,8,3,5,3,1,5,-1;1,2,10,9,5,4,-1;3,0,8,1,2,10,4,9,5,-1;5,2,10,5,4,2,4,0,2,-1;2,10,5,3,2,5,3,5,4,3,4,8,-1;9,5,4,2,3,11,-1;0,11,2,0,8,11,4,9,5,-1;0,5,4,0,1,5,2,3,11,-1;2,1,5,2,5,8,2,8,11,4,8,5,-1;10,3,11,10,1,3,9,5,4,-1;4,9,5,0,8,1,8,10,1,8,11,10,-1;5,4,0,5,0,11,5,11,10,11,0,3,-1;5,4,8,5,8,10,10,8,11,-1;9,7,8,5,7,9,-1;9,3,0,9,5,3,5,7,3,-1;0,7,8,0,1,7,1,5,7,-1;1,5,3,3,5,7,-1;9,7,8,9,5,7,10,1,2,-1;10,1,2,9,5,0,5,3,0,5,7,3,-1;8,0,2,8,2,5,8,5,7,10,5,2,-1;2,10,5,2,5,3,3,5,7,-1;7,9,5,7,8,9,3,11,2,-1;9,5,7,9,7,2,9,2,0,2,7,11,-1;2,3,11,0,1,8,1,7,8,1,5,7,-1;11,2,1,11,1,7,7,1,5,-1;9,5,8,8,5,7,10,1,3,10,3,11,-1;5,7,0,5,0,9,7,11,0,1,0,10,11,10,0,-1;11,10,0,11,0,3,10,5,0,8,0,7,5,7,0,-1;11,10,5,7,11,5,-1;10,6,5,-1;0,8,3,5,10,6,-1;9,0,1,5,10,6,-1;1,8,3,1,9,8,5,10,6,-1;1,6,5,2,6,1,-1;1,6,5,1,2,6,3,0,8,-1;9,6,5,9,0,6,0,2,6,-1;5,9,8,5,8,2,5,2,6,3,2,8,-1;2,3,11,10,6,5,-1;11,0,8,11,2,0,10,6,5,-1;0,1,9,2,3,11,5,10,6,-1;5,10,6,1,9,2,9,11,2,9,8,11,-1;6,3,11,6,5,3,5,1,3,-1;0,8,11,0,11,5,0,5,1,5,11,6,-1;3,11,6,0,3,6,0,6,5,0,5,9,-1;6,5,9,6,9,11,11,9,8,-1;5,10,6,4,7,8,-1;4,3,0,4,7,3,6,5,10,-1;1,9,0,5,10,6,8,4,7,-1;10,6,5,1,9,7,1,7,3,7,9,4,-1;6,1,2,6,5,1,4,7,8,-1;1,2,5,5,2,6,3,0,4,3,4,7,-1;8,4,7,9,0,5,0,6,5,0,2,6,-1;7,3,9,7,9,4,3,2,9,5,9,6,2,6,9,-1;3,11,2,7,8,4,10,6,5,-1;5,10,6,4,7,2,4,2,0,2,7,11,-1;0,1,9,4,7,8,2,3,11,5,10,6,-1;9,2,1,9,11,2,9,4,11,7,11,4,5,10,6,-1;8,4,7,3,11,5,3,5,1,5,11,6,-1;5,1,11,5,11,6,1,0,11,7,11,4,0,4,11,-1;0,5,9,0,6,5,0,3,6,11,6,3,8,4,7,-1;6,5,9,6,9,11,4,7,9,7,11,9,-1;10,4,9,6,4,10,-1;4,10,6,4,9,10,0,8,3,-1;10,0,1,10,6,0,6,4,0,-1;8,3,1,8,1,6,8,6,4,6,1,10,-1;1,4,9,1,2,4,2,6,4,-1;3,0,8,1,2,9,2,4,9,2,6,4,-1;0,2,4,4,2,6,-1;8,3,2,8,2,4,4,2,6,-1;10,4,9,10,6,4,11,2,3,-1;0,8,2,2,8,11,4,9,10,4,10,6,-1;3,11,2,0,1,6,0,6,4,6,1,10,-1;6,4,1,6,1,10,4,8,1,2,1,11,8,11,1,-1;9,6,4,9,3,6,9,1,3,11,6,3,-1;8,11,1,8,1,0,11,6,1,9,1,4,6,4,1,-1;3,11,6,3,6,0,0,6,4,-1;6,4,8,11,6,8,-1;7,10,6,7,8,10,8,9,10,-1;0,7,3,0,10,7,0,9,10,6,7,10,-1;10,6,7,1,10,7,1,7,8,1,8,0,-1;10,6,7,10,7,1,1,7,3,-1;1,2,6,1,6,8,1,8,9,8,6,7,-1;2,6,9,2,9,1,6,7,9,0,9,3,7,3,9,-1;7,8,0,7,0,6,6,0,2,-1;7,3,2,6,7,2,-1;2,3,11,10,6,8,10,8,9,8,6,7,-1;2,0,7,2,7,11,0,9,7,6,7,10,9,10,7,-1;1,8,0,1,7,8,1,10,7,6,7,10,2,3,11,-1;11,2,1,11,1,7,10,6,1,6,7,1,-1;8,9,6,8,6,7,9,1,6,11,6,3,1,3,6,-1;0,9,1,11,6,7,-1;7,8,0,7,0,6,3,11,0,11,6,0,-1;7,11,6,-1;7,6,11,-1;3,0,8,11,7,6,-1;0,1,9,11,7,6,-1;8,1,9,8,3,1,11,7,6,-1;10,1,2,6,11,7,-1;1,2,10,3,0,8,6,11,7,-1;2,9,0,2,10,9,6,11,7,-1;6,11,7,2,10,3,10,8,3,10,9,8,-1;7,2,3,6,2,7,-1;7,0,8,7,6,0,6,2,0,-1;2,7,6,2,3,7,0,1,9,-1;1,6,2,1,8,6,1,9,8,8,7,6,-1;10,7,6,10,1,7,1,3,7,-1;10,7,6,1,7,10,1,8,7,1,0,8,-1;0,3,7,0,7,10,0,10,9,6,10,7,-1;7,6,10,7,10,8,8,10,9,-1;6,8,4,11,8,6,-1;3,6,11,3,0,6,0,4,6,-1;8,6,11,8,4,6,9,0,1,-1;9,4,6,9,6,3,9,3,1,11,3,6,-1;6,8,4,6,11,8,2,10,1,-1;1,2,10,3,0,11,0,6,11,0,4,6,-1;4,11,8,4,6,11,0,2,9,2,10,9,-1;10,9,3,10,3,2,9,4,3,11,3,6,4,6,3,-1;8,2,3,8,4,2,4,6,2,-1;0,4,2,4,6,2,-1;1,9,0,2,3,4,2,4,6,4,3,8,-1;1,9,4,1,4,2,2,4,6,-1;8,1,3,8,6,1,8,4,6,6,10,1,-1;10,1,0,10,0,6,6,0,4,-1;4,6,3,4,3,8,6,10,3,0,3,9,10,9,3,-1;10,9,4,6,10,4,-1;4,9,5,7,6,11,-1;0,8,3,4,9,5,11,7,6,-1;5,0,1,5,4,0,7,6,11,-1;11,7,6,8,3,4,3,5,4,3,1,5,-1;9,5,4,10,1,2,7,6,11,-1;6,11,7,1,2,10,0,8,3,4,9,5,-1;7,6,11,5,4,10,4,2,10,4,0,2,-1;3,4,8,3,5,4,3,2,5,10,5,2,11,7,6,-1;7,2,3,7,6,2,5,4,9,-1;9,5,4,0,8,6,0,6,2,6,8,7,-1;3,6,2,3,7,6,1,5,0,5,4,0,-1;6,2,8,6,8,7,2,1,8,4,8,5,1,5,8,-1;9,5,4,10,1,6,1,7,6,1,3,7,-1;1,6,10,1,7,6,1,0,7,8,7,0,9,5,4,-1;4,0,10,4,10,5,0,3,10,6,10,7,3,7,10,-1;7,6,10,7,10,8,5,4,10,4,8,10,-1;6,9,5,6,11,9,11,8,9,-1;3,6,11,0,6,3,0,5,6,0,9,5,-1;0,11,8,0,5,11,0,1,5,5,6,11,-1;6,11,3,6,3,5,5,3,1,-1;1,2,10,9,5,11,9,11,8,11,5,6,-1;0,11,3,0,6,11,0,9,6,5,6,9,1,2,10,-1;11,8,5,11,5,6,8,0,5,10,5,2,0,2,5,-1;6,11,3,6,3,5,2,10,3,10,5,3,-1;5,8,9,5,2,8,5,6,2,3,8,2,-1;9,5,6,9,6,0,0,6,2,-1;1,5,8,1,8,0,5,6,8,3,8,2,6,2,8,-1;1,5,6,2,1,6,-1;1,3,6,1,6,10,3,8,6,5,6,9,8,9,6,-1;10,1,0,10,0,6,9,5,0,5,6,0,-1;0,3,8,5,6,10,-1;10,5,6,-1;10,11,5,7,11,10,5,11,-1;11,10,5,11,5,7,8,3,0,-1;5,11,7,5,10,11,1,9,0,-1;10,7,5,10,11,7,9,8,1,8,3,1,-1;11,1,2,11,7,1,7,5,1,-1;0,8,3,1,2,7,1,7,5,7,2,11,-1;9,7,5,9,2,7,9,0,2,2,11,7,-1;7,5,2,7,2,11,5,9,2,3,2,8,9,8,2,-1;2,5,10,2,3,5,3,7,5,-1;8,2,0,8,5,2,8,7,5,10,2,5,-1;9,0,1,5,10,3,5,3,7,3,10,2,-1;9,8,2,9,2,1,8,7,2,10,2,5,7,5,2,-1;1,3,5,3,7,5,-1;0,8,7,0,7,1,1,7,5,-1;9,0,3,9,3,5,5,3,7,-1;9,8,7,5,9,7,-1;5,8,4,5,10,8,10,11,8,-1;5,0,4,5,11,0,5,10,11,11,3,0,-1;0,1,9,8,4,10,8,10,11,10,4,5,-1;10,11,4,10,4,5,11,3,4,9,4,1,3,1,4,-1;2,5,1,2,8,5,2,11,8,4,5,8,-1;0,4,11,0,11,3,4,5,11,2,11,1,5,1,11,-1;0,2,5,0,5,9,2,11,5,4,5,8,11,8,5,-1;9,4,5,2,11,3,-1;2,5,10,3,5,2,3,4,5,3,8,4,-1;5,10,2,5,2,4,4,2,0,-1;3,10,2,3,5,10,3,8,5,4,5,8,0,1,9,-1;5,10,2,5,2,4,1,9,2,9,4,2,-1;8,4,5,8,5,3,3,5,1,-1;0,4,5,1,0,5,-1;8,4,5,8,5,3,9,0,5,0,3,5,-1;9,4,5,-1;4,11,7,4,9,11,9,10,11,-1;0,8,3,4,9,7,9,11,7,9,10,11,-1;1,10,11,1,11,4,1,4,0,7,4,11,-1;3,1,4,3,4,8,1,10,4,7,4,11,10,11,4,-1;4,11,7,9,11,4,9,2,11,9,1,2,-1;9,7,4,9,11,7,9,1,11,2,11,1,0,8,3,-1;11,7,4,11,4,2,2,4,0,-1;11,7,4,11,4,2,8,3,4,3,2,4,-1;2,9,10,2,7,9,2,3,7,7,4,9,-1;9,10,7,9,7,4,10,2,7,8,7,0,2,0,7,-1;3,7,10,3,10,2,7,4,10,1,10,0,4,0,10,-1;1,10,2,8,7,4,-1;4,9,1,4,1,7,7,1,3,-1;4,9,1,4,1,7,0,8,1,8,7,1,-1;4,0,3,7,4,3,-1;4,8,7,-1;9,10,8,10,11,8,-1;3,0,9,3,9,11,11,9,10,-1;0,1,10,0,10,8,8,10,11,-1;3,1,10,11,3,10,-1;1,2,11,1,11,9,9,11,8,-1;3,0,9,3,9,11,1,2,9,2,11,9,-1;0,2,11,8,0,11,-1;3,2,11,-1;2,3,8,2,8,10,10,8,9,-1;9,10,2,0,9,2,-1;2,3,8,2,8,10,0,1,8,1,10,8,-1;1,10,2,-1;1,3,8,9,1,8,-1;0,9,1,-1;0,3,8,-1;-1";
+const MC_TRI = MC_TRI_DATA.split(';').map(s => s.split(',').map(Number));
+
+// Edge vertex indices: edge i connects EDGE_V[i][0] to EDGE_V[i][1]
+const EDGE_V = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+// Cube corner offsets (x,y,z) for corners 0-7
+const CORNER = [[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+
+function marchingCubes(sdfFn, res, bounds) {
+  const step = (2*bounds) / res;
+  const grid = new Float32Array((res+1)*(res+1)*(res+1));
+  const s1 = res+1;
+
+  // Sample SDF on grid
+  for (let iz = 0; iz <= res; iz++) {
+    const pz = -bounds + iz*step;
+    for (let iy = 0; iy <= res; iy++) {
+      const py = -bounds + iy*step;
+      for (let ix = 0; ix <= res; ix++) {
+        const px = -bounds + ix*step;
+        grid[iz*s1*s1 + iy*s1 + ix] = sdfFn(px, py, pz);
+      }
+    }
+  }
+
+  const positions = [];
+  const idx = (ix,iy,iz) => iz*s1*s1 + iy*s1 + ix;
+
+  function interp(i1x,i1y,i1z, i2x,i2y,i2z, v1, v2) {
+    if (Math.abs(v1) < 1e-6) return [-bounds+i1x*step, -bounds+i1y*step, -bounds+i1z*step];
+    if (Math.abs(v2) < 1e-6) return [-bounds+i2x*step, -bounds+i2y*step, -bounds+i2z*step];
+    const t = -v1 / (v2 - v1);
+    return [
+      -bounds + (i1x + t*(i2x-i1x))*step,
+      -bounds + (i1y + t*(i2y-i1y))*step,
+      -bounds + (i1z + t*(i2z-i1z))*step,
+    ];
+  }
+
+  for (let iz = 0; iz < res; iz++)
+  for (let iy = 0; iy < res; iy++)
+  for (let ix = 0; ix < res; ix++) {
+    // Get grid values at 8 corners
+    const vals = [];
+    for (let c = 0; c < 8; c++)
+      vals[c] = grid[idx(ix+CORNER[c][0], iy+CORNER[c][1], iz+CORNER[c][2])];
+
+    let cubeIdx = 0;
+    for (let c = 0; c < 8; c++) if (vals[c] < 0) cubeIdx |= (1 << c);
+    if (cubeIdx === 0 || cubeIdx === 255) continue;
+
+    const edges = MC_EDGE[cubeIdx];
+    const edgeVerts = new Array(12);
+    for (let e = 0; e < 12; e++) {
+      if (edges & (1 << e)) {
+        const [c1, c2] = EDGE_V[e];
+        edgeVerts[e] = interp(
+          ix+CORNER[c1][0], iy+CORNER[c1][1], iz+CORNER[c1][2],
+          ix+CORNER[c2][0], iy+CORNER[c2][1], iz+CORNER[c2][2],
+          vals[c1], vals[c2]
+        );
+      }
+    }
+
+    const tri = MC_TRI[cubeIdx];
+    for (let t = 0; t < tri.length; t += 3) {
+      if (tri[t] === -1) break;
+      const a = edgeVerts[tri[t]], b = edgeVerts[tri[t+1]], c = edgeVerts[tri[t+2]];
+      if (!a || !b || !c) continue;
+      positions.push(a[0],a[1],a[2], b[0],b[1],b[2], c[0],c[1],c[2]);
+    }
+  }
+
+  return new Float32Array(positions);
+}
+
+// ── Grammar from UI ──────────────────────────────────────────────────
+function grammarFromUI() {
+  const sym   = document.getElementById('sym-select').value;
+  const iters = parseInt(document.getElementById('iter-range').value);
+  const sf    = parseFloat(document.getElementById('sf-range').value);
+  return {
+    seed: { type: 'sphere', radius: 1.0, center: [0,0,0] },
+    symmetry_group: sym,
+    iterations: Array.from({ length: iters }, (_, i) => ({
+      operation: i % 2 === 0 ? 'subtract' : 'add',
+      primitive: 'sphere', scale_factor: sf,
+      distance_factor: 1.0, smooth_radius: 0.02, apply_to: 'new',
+    })),
+    render: { resolution: 128, bounds: 1.8 },
+  };
+}
+
+// ── Three.js setup ───────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+document.body.appendChild(renderer.domElement);
+
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a0f);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.01, 100);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const dir = new THREE.DirectionalLight(0xaaccff, 1.3);
+dir.position.set(3, 5, 4); scene.add(dir);
+const fill = new THREE.DirectionalLight(0xffaa66, 0.35);
+fill.position.set(-3, -2, -3); scene.add(fill);
+
+const meshMat = new THREE.MeshPhongMaterial({
+  color: 0x2266dd, specular: 0x88aaff, shininess: 60,
+  side: THREE.DoubleSide,
+});
+
+let currentMesh = null;
+
+function renderGrammar(grammar) {
+  if (currentMesh) { scene.remove(currentMesh); currentMesh.geometry.dispose(); currentMesh = null; }
+
+  const ops   = buildOps(grammar);
+  const seedR = grammar.seed.radius;
+  const seedC = grammar.seed.center || [0,0,0];
+  const res   = parseInt(document.getElementById('res-range').value);
+  const bounds = grammar.render?.bounds ?? 1.8;
+
+  setStatus(`Meshing ${ops.length} ops at ${res}^3...`);
+
+  // Defer to next frame so status text shows
+  requestAnimationFrame(() => {
+    const t0 = performance.now();
+    const verts = marchingCubes(
+      (px,py,pz) => evalSDF(ops, seedR, seedC, px, py, pz),
+      res, bounds
+    );
+    const dt = ((performance.now() - t0)/1000).toFixed(2);
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    geo.computeVertexNormals();
+
+    currentMesh = new THREE.Mesh(geo, meshMat);
+    scene.add(currentMesh);
+
+    const triCount = verts.length / 9;
+    document.getElementById('info').textContent =
+      `${triCount.toLocaleString()} tris | ${ops.length} ops | ${dt}s | drag to orbit`;
+    setStatus('');
+    needsRender = true;
+  });
+
+  renderGrammarView(grammar);
+}
+
+function renderGrammarView(grammar) {
+  const el = document.getElementById('grammar-view');
+  if (!grammar.iterations?.length) { el.textContent = '-'; return; }
+  el.innerHTML = grammar.iterations.map((it, i) => {
+    const cls = it.operation === 'subtract' ? 'sub' : it.operation === 'add' ? 'add' : 'int';
+    return `<div class="iter-row">
+      <span style="color:#446">Step ${i+1}</span>
+      <span class="tag ${cls}">${it.operation.toUpperCase()}</span>
+      <span style="color:#557">x${it.scale_factor} df=${it.distance_factor??1.0}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Camera orbit ─────────────────────────────────────────────────────
+let isDragging = false, prevMouse = {x:0,y:0};
+let sph = { theta: 0.4, phi: 0.4, r: 3.5 };
+
+function updateCamera() {
+  camera.position.set(
+    sph.r * Math.cos(sph.phi) * Math.sin(sph.theta),
+    sph.r * Math.sin(sph.phi),
+    sph.r * Math.cos(sph.phi) * Math.cos(sph.theta),
+  );
+  camera.lookAt(0, 0, 0);
+}
+
+renderer.domElement.addEventListener('pointerdown', e => { isDragging=true; prevMouse={x:e.clientX,y:e.clientY}; });
+renderer.domElement.addEventListener('pointerup', () => isDragging=false);
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!isDragging) return;
+  sph.theta -= (e.clientX-prevMouse.x)*0.005;
+  sph.phi = Math.max(-1.4, Math.min(1.4, sph.phi+(e.clientY-prevMouse.y)*0.005));
+  prevMouse = {x:e.clientX,y:e.clientY};
+  needsRender = true;
+});
+renderer.domElement.addEventListener('wheel', e => {
+  e.preventDefault();
+  sph.r = Math.max(1.0, Math.min(12, sph.r+e.deltaY*0.005));
+  needsRender = true;
+}, {passive:false});
+window.addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  needsRender = true;
+});
+
+let needsRender = true;
+function animate() {
+  requestAnimationFrame(animate);
+  if (!needsRender) return;
+  updateCamera();
+  renderer.render(scene, camera);
+  needsRender = false;
+}
+animate();
+
+// ── Preset dropdown ──────────────────────────────────────────────────
+let activePreset = null;
+const presetBtn  = document.getElementById('preset-btn');
+const presetDrop = document.getElementById('preset-dropdown');
+presetBtn.addEventListener('click', e => { e.stopPropagation(); presetDrop.classList.toggle('open'); });
+document.addEventListener('click', () => presetDrop.classList.remove('open'));
+
+async function loadPresetList() {
+  try {
+    const res   = await fetch(`${API_BASE}/api/grammar`);
+    const names = await res.json();
+    presetDrop.innerHTML = names.map(n =>
+      `<div class="item" data-name="${n}">${n.replace(/_/g,' ')}</div>`
+    ).join('');
+    presetDrop.querySelectorAll('.item').forEach(el =>
+      el.addEventListener('click', () => loadPreset(el.dataset.name)));
+    if (names.length > 0) loadPreset(names[0]);
+  } catch {
+    setStatus('API not reachable - using custom mode');
+    renderGrammar(grammarFromUI());
+  }
+}
+
+async function loadPreset(name) {
+  presetDrop.classList.remove('open');
+  setStatus(`Loading ${name}...`);
+  try {
+    const res = await fetch(`${API_BASE}/api/grammar/${name}`);
+    const grammar = await res.json();
+    activePreset = name;
+    document.getElementById('active-preset').textContent = name.replace(/_/g,' ');
+    presetDrop.querySelectorAll('.item').forEach(el =>
+      el.classList.toggle('active', el.dataset.name === name));
+    renderGrammar(grammar);
+  } catch (err) { setStatus(`Error: ${err.message}`); }
+}
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+// ── UI wiring ────────────────────────────────────────────────────────
+let _debounceTimer = null;
+function autoApply() {
+  activePreset = null;
+  document.getElementById('active-preset').textContent = 'custom';
+  presetDrop.querySelectorAll('.item').forEach(el => el.classList.remove('active'));
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(() => renderGrammar(grammarFromUI()), 400);
+}
+
+function updateLabels() {
+  document.getElementById('sym-val').textContent = document.getElementById('sym-select').value;
+  document.getElementById('iter-val').textContent = document.getElementById('iter-range').value;
+  document.getElementById('sf-val').textContent = parseFloat(document.getElementById('sf-range').value).toFixed(2);
+  document.getElementById('res-val').textContent = document.getElementById('res-range').value;
+}
+for (const id of ['sym-select','iter-range','sf-range','res-range']) {
+  document.getElementById(id).addEventListener('input', updateLabels);
+  document.getElementById(id).addEventListener('change', autoApply);
+}
+
+document.getElementById('btn-apply').addEventListener('click', () => {
+  activePreset = null;
+  document.getElementById('active-preset').textContent = 'custom';
+  presetDrop.querySelectorAll('.item').forEach(el => el.classList.remove('active'));
+  renderGrammar(grammarFromUI());
+});
+
+document.getElementById('btn-mesh').addEventListener('click', async () => {
+  const grammar = activePreset
+    ? await fetch(`${API_BASE}/api/grammar/${activePreset}`).then(r=>r.json())
+    : grammarFromUI();
+  setStatus('Generating mesh...');
+  try {
+    const resp = await fetch(`${API_BASE}/api/mesh`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(grammar),
+    });
+    if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=`${activePreset||'sierpsphere'}.glb`; a.click();
+    URL.revokeObjectURL(url);
+    setStatus('Downloaded.'); setTimeout(()=>setStatus(''),3000);
+  } catch(err) { setStatus(`Error: ${err.message}`); }
+});
+
+// ── Boot ─────────────────────────────────────────────────────────────
+loadPresetList();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "SDF Engine API",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["engine/server.py"],
+      "port": 5000
+    },
+    {
+      "name": "Viewer (static)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8001", "--directory", "viewer"],
+      "port": 8001
+    }
+  ]
+}

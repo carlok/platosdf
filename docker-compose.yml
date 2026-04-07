@@ -1,0 +1,25 @@
+services:
+  engine:
+    build:
+      context: ./engine
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./grammar:/app/grammar:ro
+      - ./engine/sdf.py:/app/sdf.py:ro
+      - ./engine/server.py:/app/server.py:ro
+    environment:
+      - GRAMMAR_DIR=/app/grammar
+      - FLASK_DEBUG=1
+    restart: unless-stopped
+
+  viewer:
+    build:
+      context: ./viewer
+    ports:
+      - "8001:8080"
+    volumes:
+      - ./viewer/index.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - engine
+    restart: unless-stopped
