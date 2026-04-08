@@ -33,10 +33,13 @@ export function renderHQSnapshot({ currentOps, activeGrammar, currentSeedC, curr
       sdfBody += `  d = ${opName}(${primCall(o.prim, o.cx, o.cy, o.cz, o.r)}, d, ${o.k.toFixed(6)});\n`;
     }
 
+    const maxSteps = Math.max(72, Math.min(192, 192 - Math.floor(currentOps.length * 0.08)));
+
     const fSrc = `
 precision highp float;
 uniform vec2 uRes;
 uniform mat4 uInvProj, uInvView;
+uniform float uMaxSteps;
 
 float smoothSub(float a, float b, float k) {
   if(k<=0.) return max(-a,b);
@@ -105,7 +108,13 @@ void main(){
   vec4 cd=uInvProj*vec4(uv,-1,1); cd=vec4(cd.xyz/cd.w,0.);
   vec3 rd=normalize((uInvView*cd).xyz), ro=(uInvView*vec4(0,0,0,1)).xyz;
   float t=0.;
-  for(int i=0;i<256;i++){ float d=map(ro+rd*t); if(d<.0003) break; t+=d; if(t>20.) break; }
+  for(int i=0;i<256;i++){
+    if(float(i) >= uMaxSteps) break;
+    float d=map(ro+rd*t);
+    if(d<.0003) break;
+    t+=d;
+    if(t>20.) break;
+  }
   vec3 col=vec3(.02,.02,.04);
   if(t<20.){
     vec3 p=ro+rd*t, n=calcN(p), V=-rd;
@@ -180,6 +189,7 @@ void main(){
     gl.uniform2f(gl.getUniformLocation(prog, "uRes"), W, H);
     gl.uniformMatrix4fv(gl.getUniformLocation(prog, "uInvProj"), false, invP);
     gl.uniformMatrix4fv(gl.getUniformLocation(prog, "uInvView"), false, invV);
+    gl.uniform1f(gl.getUniformLocation(prog, "uMaxSteps"), maxSteps);
     gl.viewport(0, 0, W, H);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.finish();

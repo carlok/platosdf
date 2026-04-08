@@ -26,6 +26,7 @@ function makeFakeGL() {
     vertexAttribPointer: vi.fn(),
     getUniformLocation: vi.fn(() => ({})),
     uniform2f: vi.fn(),
+    uniform1f: vi.fn(),
     uniformMatrix4fv: vi.fn(),
     viewport: vi.fn(),
     drawArrays: vi.fn(),

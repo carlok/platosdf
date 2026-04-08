@@ -312,9 +312,16 @@ curl -o classic.glb http://localhost:5000/api/mesh/sierpinski_classic
 | **Smooth K slider** | 0–0.100 blend radius for Boolean edges |
 | **Mesh Resolution slider** | Grid density for marching cubes (32–128) |
 | **Apply** | Recompute marching cubes mesh from current params |
+| **Inline step editor** | Edit/add/reorder iteration rows (op/primitive/scale/distance/smooth/apply_to) |
+| **Grammar JSON preview** | Live JSON block for copy/inspection before export |
 | **Save Grammar** | Download current active grammar as JSON |
 | **Snapshot HQ** | Single-frame PBR raymarcher → save PNG at 2× resolution |
 | **Download GLB** | Send grammar to API, download watertight GLB mesh |
+
+Safety guardrails are enabled in the viewer to avoid GPU lockups on integrated graphics:
+- realtime meshing is blocked above a max operation count
+- snapshot is blocked above a stricter operation threshold
+- high mesh resolution is clamped to a safe value
 
 The viewer runs **entirely client-side** for interactive rendering (marching cubes in JavaScript). The API is only needed for high-resolution GLB export and loading presets by name.
 

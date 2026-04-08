@@ -7,11 +7,12 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0a0a0f; overflow: hidden; font-family: 'Courier New', monospace; color: #8af; }
-  canvas { display: block; }
+  canvas { display: block; position: fixed; inset: 0; z-index: 1; }
   #menubar {
     position: fixed; top: 0; left: 0; right: 0; height: 40px; z-index: 20;
     background: rgba(8,8,18,0.95); border-bottom: 1px solid #224;
     display: flex; align-items: center; gap: 4px; padding: 0 12px;
+    pointer-events: auto;
   }
   #menubar .title { color: #adf; font-size: 14px; font-weight: bold; margin-right: 16px; }
   #menubar .sep { width: 1px; height: 20px; background: #224; margin: 0 6px; }
@@ -46,6 +47,7 @@
     position: fixed; top: 48px; right: 12px; z-index: 10;
     background: rgba(8,8,18,0.92); border: 1px solid #224;
     border-radius: 6px; padding: 14px; font-size: 12px; min-width: 220px;
+    pointer-events: auto;
   }
   #panel label { display: block; margin: 8px 0 2px; color: #adf; }
   #panel input[type=range] { width: 100%; accent-color: #4a7aba; }
@@ -65,6 +67,21 @@
   #panel .grammar-view .tag.sub { background: #3a1010; color: #f86; }
   #panel .grammar-view .tag.add { background: #0a2a1a; color: #6f8; }
   #panel .grammar-view .tag.int { background: #1a1a3a; color: #88f; }
+  #step-editor { margin-top: 10px; border-top: 1px solid #1a2a3a; padding-top: 8px; }
+  #step-editor table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  #step-editor th, #step-editor td { border-bottom: 1px solid #1a2a3a; padding: 3px 2px; vertical-align: middle; }
+  #step-editor th { color: #557; font-weight: normal; }
+  #step-editor input, #step-editor select, #step-editor button {
+    font-size: 10px; font-family: inherit; color: #8af; background: #112; border: 1px solid #335; border-radius: 3px;
+  }
+  #step-editor input, #step-editor select { width: 100%; padding: 2px; }
+  #step-editor button { padding: 1px 5px; cursor: pointer; }
+  #step-editor .row-actions { display: flex; gap: 3px; justify-content: flex-end; }
+  #btn-add-step { margin-top: 6px; width: 100%; }
+  #grammar-json {
+    margin-top: 8px; max-height: 150px; overflow: auto; border: 1px solid #1a2a3a;
+    background: #0b0f18; padding: 6px; color: #6cf; font-size: 10px; line-height: 1.5; white-space: pre;
+  }
   #info { position: fixed; bottom: 12px; left: 12px; font-size: 11px; color: #446; pointer-events: none; }
 </style>
 </head>
@@ -102,6 +119,16 @@
   <input type="range" id="res-range" min="32" max="160" value="64" step="8">
   <div class="section">Active grammar</div>
   <div id="grammar-view" class="grammar-view">-</div>
+  <div id="step-editor">
+    <table>
+      <thead>
+        <tr><th>Op</th><th>Prim</th><th>Sf</th><th>Df</th><th>K</th><th>To</th><th></th></tr>
+      </thead>
+      <tbody id="step-body"></tbody>
+    </table>
+    <button id="btn-add-step" class="menu-action">Add step</button>
+    <pre id="grammar-json">-</pre>
+  </div>
 </div>
 
 <div id="info">Drag to orbit - Scroll to zoom</div>

@@ -18,6 +18,12 @@ const state = {
 const API_BASE = window.location.hostname === "localhost"
   ? "http://localhost:5000"
   : `http://${window.location.hostname}:5000`;
+const GPU_GUARD = {
+  maxOpsRealtime: 1400,
+  maxOpsSnapshot: 900,
+  maxResolution: 96,
+  safeResolution: 64,
+};
 
 export function initViewer() {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -55,6 +61,9 @@ export function initViewer() {
   const presetDrop = document.getElementById("preset-dropdown");
 
   const setStatus = (msg) => { document.getElementById("status").textContent = msg; };
+  const opChoices = ["subtract", "add", "intersect"];
+  const primChoices = ["sphere", "cube", "octahedron"];
+  const applyChoices = ["new", "all", "surface"];
 
   const renderGrammarView = (grammar) => {
     const el = document.getElementById("grammar-view");
@@ -72,6 +81,15 @@ export function initViewer() {
     }).join("");
   };
 
+  const normalizeIteration = (it, defaults) => ({
+    operation: opChoices.includes(it?.operation) ? it.operation : defaults.operation,
+    primitive: primChoices.includes(it?.primitive) ? it.primitive : defaults.primitive,
+    scale_factor: Number.isFinite(Number(it?.scale_factor)) ? Number(it.scale_factor) : defaults.scale_factor,
+    distance_factor: Number.isFinite(Number(it?.distance_factor)) ? Number(it.distance_factor) : defaults.distance_factor,
+    smooth_radius: Number.isFinite(Number(it?.smooth_radius)) ? Number(it.smooth_radius) : defaults.smooth_radius,
+    apply_to: applyChoices.includes(it?.apply_to) ? it.apply_to : defaults.apply_to,
+  });
+
   const grammarFromUI = () => {
     const sym = document.getElementById("sym-select").value;
     const iters = Number.parseInt(document.getElementById("iter-range").value, 10);
@@ -84,6 +102,14 @@ export function initViewer() {
       ? state.customProfile.smoothTemplate
       : [0.02, 0.01, 0.005];
     const decay = 0.6;
+    const defaults = {
+      operation: "subtract",
+      primitive: state.customProfile.iterPrimitive,
+      scale_factor: sf,
+      distance_factor: 1.0,
+      smooth_radius: 0.02,
+      apply_to: "new",
+    };
     return {
       seed: { type: state.customProfile.seedType, radius: 1.0, center: [0, 0, 0] },
       symmetry_group: sym,
@@ -92,14 +118,14 @@ export function initViewer() {
         const templateSmooth = i < smoothTemplate.length
           ? smoothTemplate[i]
           : smoothTemplate[smoothTemplate.length - 1] * (decay ** (i - smoothTemplate.length + 1));
-        return {
+        return normalizeIteration({
           operation: templateOp,
           primitive: state.customProfile.iterPrimitive,
           scale_factor: sf,
           distance_factor: 1.0,
           smooth_radius: Number(templateSmooth.toFixed(6)),
           apply_to: "new",
-        };
+        }, defaults);
       }),
       render: { resolution: res, bounds: 1.8 },
     };
@@ -113,21 +139,95 @@ export function initViewer() {
     state.customProfile.smoothTemplate = iters.length ? iters.map((it) => Number(it.smooth_radius ?? 0.0)) : [0.02, 0.01, 0.005];
   };
 
+  const renderJSONView = (grammar) => {
+    const el = document.getElementById("grammar-json");
+    el.textContent = `${JSON.stringify(grammar, null, 2)}\n`;
+  };
+
+  const renderStepEditor = (grammar) => {
+    const body = document.getElementById("step-body");
+    const rows = grammar.iterations || [];
+    body.innerHTML = rows.map((it, i) => `
+      <tr data-idx="${i}">
+        <td><select data-field="operation">${opChoices.map((v) => `<option value="${v}" ${it.operation === v ? "selected" : ""}>${v}</option>`).join("")}</select></td>
+        <td><select data-field="primitive">${primChoices.map((v) => `<option value="${v}" ${it.primitive === v ? "selected" : ""}>${v}</option>`).join("")}</select></td>
+        <td><input data-field="scale_factor" type="number" min="0.05" max="1.0" step="0.01" value="${it.scale_factor}"></td>
+        <td><input data-field="distance_factor" type="number" min="0.0" max="2.0" step="0.01" value="${it.distance_factor ?? 1.0}"></td>
+        <td><input data-field="smooth_radius" type="number" min="0.0" max="1.0" step="0.001" value="${it.smooth_radius ?? 0.0}"></td>
+        <td><select data-field="apply_to">${applyChoices.map((v) => `<option value="${v}" ${it.apply_to === v ? "selected" : ""}>${v}</option>`).join("")}</select></td>
+        <td><div class="row-actions">
+          <button data-act="up">&#8593;</button>
+          <button data-act="down">&#8595;</button>
+          <button data-act="dup">+</button>
+          <button data-act="del">x</button>
+        </div></td>
+      </tr>
+    `).join("");
+  };
+
+  const syncEditorIntoActiveGrammar = () => {
+    if (!state.activeGrammar) return;
+    const rows = [...document.querySelectorAll("#step-body tr")];
+    const defaults = {
+      operation: "subtract",
+      primitive: state.customProfile.iterPrimitive,
+      scale_factor: Number.parseFloat(document.getElementById("sf-range").value),
+      distance_factor: 1.0,
+      smooth_radius: 0.02,
+      apply_to: "new",
+    };
+    state.activeGrammar.iterations = rows.map((row) => {
+      const valueFor = (field) => row.querySelector(`[data-field="${field}"]`)?.value;
+      return normalizeIteration({
+        operation: valueFor("operation"),
+        primitive: valueFor("primitive"),
+        scale_factor: Number.parseFloat(valueFor("scale_factor")),
+        distance_factor: Number.parseFloat(valueFor("distance_factor")),
+        smooth_radius: Number.parseFloat(valueFor("smooth_radius")),
+        apply_to: valueFor("apply_to"),
+      }, defaults);
+    });
+    document.getElementById("iter-range").value = String(state.activeGrammar.iterations.length);
+    document.getElementById("iter-val").textContent = String(state.activeGrammar.iterations.length);
+    renderGrammarView(state.activeGrammar);
+    renderJSONView(state.activeGrammar);
+  };
+
   const renderGrammar = (grammar) => {
-    state.activeGrammar = grammar;
+    state.activeGrammar = {
+      ...grammar,
+      iterations: [...(grammar.iterations || [])].map((it) => ({ ...it })),
+      seed: { ...grammar.seed },
+      render: { ...(grammar.render || {}) },
+    };
     if (currentMesh) {
       scene.remove(currentMesh);
       currentMesh.geometry.dispose();
       currentMesh = null;
     }
 
-    const ops = buildOps(grammar);
+    const ops = buildOps(state.activeGrammar);
     currentOps = ops;
-    currentSeedR = grammar.seed.radius;
-    currentSeedC = grammar.seed.center || [0, 0, 0];
-    currentSeedFn = PRIMS[grammar.seed?.type || "sphere"] || PRIMS.sphere;
-    const res = Number.parseInt(document.getElementById("res-range").value, 10);
-    const bounds = grammar.render?.bounds ?? 1.8;
+    currentSeedR = state.activeGrammar.seed.radius;
+    currentSeedC = state.activeGrammar.seed.center || [0, 0, 0];
+    currentSeedFn = PRIMS[state.activeGrammar.seed?.type || "sphere"] || PRIMS.sphere;
+    let res = Number.parseInt(document.getElementById("res-range").value, 10);
+    const bounds = state.activeGrammar.render?.bounds ?? 1.8;
+
+    if (res > GPU_GUARD.maxResolution) {
+      res = GPU_GUARD.safeResolution;
+      document.getElementById("res-range").value = String(res);
+      updateLabels();
+      setStatus(`Safe mode: clamped resolution to ${res}.`);
+    }
+    if (ops.length > GPU_GUARD.maxOpsRealtime) {
+      setStatus(`Safety stop: ${ops.length} ops too heavy for realtime.`);
+      document.getElementById("info").textContent = `${ops.length.toLocaleString()} ops blocked (GPU safety)`;
+      renderGrammarView(state.activeGrammar);
+      renderStepEditor(state.activeGrammar);
+      renderJSONView(state.activeGrammar);
+      return;
+    }
 
     setStatus(`Meshing ${ops.length} ops at ${res}^3...`);
     requestAnimationFrame(() => {
@@ -152,7 +252,9 @@ export function initViewer() {
       needsRender = true;
     });
 
-    renderGrammarView(grammar);
+    renderGrammarView(state.activeGrammar);
+    renderStepEditor(state.activeGrammar);
+    renderJSONView(state.activeGrammar);
   };
 
   const updateCamera = () => {
@@ -187,7 +289,12 @@ export function initViewer() {
     }
     clearTimeout(state.debounce);
     state.debounce = setTimeout(() => {
-      renderGrammar(state.activeGrammar && !clearPreset ? state.activeGrammar : grammarFromUI());
+      if (state.activeGrammar && !clearPreset) {
+        syncEditorIntoActiveGrammar();
+        renderGrammar(state.activeGrammar);
+      } else {
+        renderGrammar(grammarFromUI());
+      }
     }, 350);
   };
 
@@ -256,6 +363,7 @@ export function initViewer() {
 
   document.getElementById("btn-apply").addEventListener("click", () => queueApply(true));
   document.getElementById("btn-save").addEventListener("click", () => {
+    syncEditorIntoActiveGrammar();
     const grammar = state.activeGrammar || grammarFromUI();
     const payload = `${JSON.stringify(grammar, null, 2)}\n`;
     const blob = new Blob([payload], { type: "application/json" });
@@ -270,9 +378,8 @@ export function initViewer() {
     setTimeout(() => setStatus(""), 2500);
   });
   document.getElementById("btn-mesh").addEventListener("click", async () => {
-    const grammar = state.activePreset
-      ? await fetch(`${API_BASE}/api/grammar/${state.activePreset}`).then((r) => r.json())
-      : grammarFromUI();
+    syncEditorIntoActiveGrammar();
+    const grammar = state.activeGrammar || grammarFromUI();
     setStatus("Generating mesh...");
     try {
       const resp = await fetch(`${API_BASE}/api/mesh`, {
@@ -296,7 +403,62 @@ export function initViewer() {
   });
 
   document.getElementById("btn-snap").addEventListener("click", () => {
+    const opsForCheck = currentOps.length
+      ? currentOps.length
+      : (state.activeGrammar ? buildOps(state.activeGrammar).length : 0);
+    if (opsForCheck > GPU_GUARD.maxOpsSnapshot) {
+      setStatus(`Snapshot blocked: ${opsForCheck} ops exceeds safety limit.`);
+      return;
+    }
     renderHQSnapshot({ currentOps, activeGrammar: state.activeGrammar, currentSeedC, currentSeedR, camera, setStatus });
+  });
+
+  document.getElementById("step-body").addEventListener("change", () => {
+    state.activePreset = null;
+    document.getElementById("active-preset").textContent = "custom";
+    syncEditorIntoActiveGrammar();
+  });
+
+  document.getElementById("step-body").addEventListener("click", (evt) => {
+    const button = evt.target.closest("button[data-act]");
+    if (!button) return;
+    const row = button.closest("tr");
+    const idx = Number.parseInt(row?.dataset?.idx || "-1", 10);
+    if (!state.activeGrammar || idx < 0) return;
+    const arr = state.activeGrammar.iterations;
+    const act = button.dataset.act;
+    if (act === "up" && idx > 0) [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+    if (act === "down" && idx < arr.length - 1) [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
+    if (act === "dup") arr.splice(idx + 1, 0, { ...arr[idx] });
+    if (act === "del" && arr.length > 1) arr.splice(idx, 1);
+    document.getElementById("iter-range").value = String(arr.length);
+    updateLabels();
+    renderStepEditor(state.activeGrammar);
+    renderGrammarView(state.activeGrammar);
+    renderJSONView(state.activeGrammar);
+    state.activePreset = null;
+    document.getElementById("active-preset").textContent = "custom";
+  });
+
+  document.getElementById("btn-add-step").addEventListener("click", () => {
+    if (!state.activeGrammar) state.activeGrammar = grammarFromUI();
+    const last = state.activeGrammar.iterations[state.activeGrammar.iterations.length - 1];
+    const defaults = {
+      operation: "subtract",
+      primitive: state.customProfile.iterPrimitive,
+      scale_factor: Number.parseFloat(document.getElementById("sf-range").value),
+      distance_factor: 1.0,
+      smooth_radius: 0.02,
+      apply_to: "new",
+    };
+    state.activeGrammar.iterations.push(normalizeIteration(last || defaults, defaults));
+    document.getElementById("iter-range").value = String(state.activeGrammar.iterations.length);
+    updateLabels();
+    renderStepEditor(state.activeGrammar);
+    renderGrammarView(state.activeGrammar);
+    renderJSONView(state.activeGrammar);
+    state.activePreset = null;
+    document.getElementById("active-preset").textContent = "custom";
   });
 
   updateLabels();

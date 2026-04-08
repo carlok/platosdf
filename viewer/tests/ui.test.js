@@ -86,6 +86,9 @@ function setupDOM() {
   <button id="btn-snap"></button>
   <div id="active-preset"></div>
   <div id="grammar-view"></div>
+  <table><tbody id="step-body"></tbody></table>
+  <button id="btn-add-step"></button>
+  <pre id="grammar-json"></pre>
   <div id="info"></div>
   <div id="status"></div>
   `;
@@ -166,6 +169,17 @@ describe("ui wiring", () => {
     expect(rows).toContain("SUBTRACT");
     const fetchCalls = global.fetch.mock.calls.filter(([url]) => String(url).includes("/api/grammar/"));
     expect(fetchCalls.length).toBeGreaterThan(0);
+  });
+
+  it("adds an inline step and updates JSON preview", async () => {
+    const { initViewer } = await import("../js/ui.js");
+    initViewer();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    const before = document.querySelectorAll("#step-body tr").length;
+    document.getElementById("btn-add-step").click();
+    const after = document.querySelectorAll("#step-body tr").length;
+    expect(after).toBe(before + 1);
+    expect(document.getElementById("grammar-json").textContent).toContain("\"iterations\"");
   });
 });
 
