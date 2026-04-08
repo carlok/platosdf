@@ -17,3 +17,5 @@ venv/
 
 # Claude Code local settings
 .claude/
+
+gallery/
