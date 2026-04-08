@@ -1,7 +1,7 @@
 import { THREE } from "./three-adapter.js";
 import { buildOps, evalSDF, PRIMS } from "./sdf.js";
 import { filterLargestComponent, marchingCubes } from "./marching-cubes.js";
-import { renderHQSnapshot } from "./hq-snapshot.js";
+import { renderHQSnapshot, MATERIALS } from "./hq-snapshot.js";
 
 const state = {
   activePreset: null,
@@ -35,17 +35,26 @@ export function initViewer() {
   scene.background = new THREE.Color(0x0a0a0f);
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 100);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-  const dir = new THREE.DirectionalLight(0xaaccff, 1.3);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+  const dir = new THREE.DirectionalLight(0xfff5e0, 2.2);
   dir.position.set(3, 5, 4);
   scene.add(dir);
-  const fill = new THREE.DirectionalLight(0xffaa66, 0.35);
+  const fill = new THREE.DirectionalLight(0x8ab0ff, 0.6);
   fill.position.set(-3, -2, -3);
   scene.add(fill);
 
-  const meshMat = new THREE.MeshPhongMaterial({
-    color: 0x2266dd, specular: 0x88aaff, shininess: 60, side: THREE.DoubleSide,
-  });
+  const meshMat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+
+  const applyMaterial = (key) => {
+    const m = MATERIALS[key] || MATERIALS.bronze;
+    meshMat.color.setRGB(...m.albedo);
+    meshMat.metalness = m.metallic;
+    meshMat.roughness = m.roughness;
+    meshMat.needsUpdate = true;
+    needsRender = true;
+  };
+
+  applyMaterial(document.getElementById("mat-select")?.value || "bronze");
 
   let currentMesh = null;
   let currentOps = [];
@@ -360,6 +369,7 @@ export function initViewer() {
   }
   document.getElementById("res-range").addEventListener("input", updateLabels);
   document.getElementById("res-range").addEventListener("change", () => queueApply(false));
+  document.getElementById("mat-select")?.addEventListener("change", (e) => applyMaterial(e.target.value));
 
   document.getElementById("btn-apply").addEventListener("click", () => queueApply(true));
   document.getElementById("btn-save").addEventListener("click", () => {
