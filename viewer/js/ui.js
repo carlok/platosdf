@@ -410,7 +410,8 @@ export function initViewer() {
       setStatus(`Snapshot blocked: ${opsForCheck} ops exceeds safety limit.`);
       return;
     }
-    renderHQSnapshot({ currentOps, activeGrammar: state.activeGrammar, currentSeedC, currentSeedR, camera, setStatus });
+    const materialKey = document.getElementById("mat-select")?.value || "bronze";
+    renderHQSnapshot({ currentOps, activeGrammar: state.activeGrammar, currentSeedC, currentSeedR, camera, setStatus, materialKey });
   });
 
   document.getElementById("step-body").addEventListener("change", () => {

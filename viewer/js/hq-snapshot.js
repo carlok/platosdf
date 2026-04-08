@@ -1,5 +1,15 @@
 import { smoothIntersect, smoothSub, smoothUnion } from "./sdf.js";
 
+export const MATERIALS = {
+  bronze:   { albedo: [0.78, 0.50, 0.22], metallic: 0.90, roughness: 0.35, ambient: [0.08, 0.05, 0.03] },
+  gold:     { albedo: [1.00, 0.78, 0.05], metallic: 0.95, roughness: 0.20, ambient: [0.10, 0.08, 0.01] },
+  silver:   { albedo: [0.80, 0.80, 0.85], metallic: 0.95, roughness: 0.18, ambient: [0.04, 0.04, 0.05] },
+  copper:   { albedo: [0.95, 0.45, 0.18], metallic: 0.90, roughness: 0.30, ambient: [0.09, 0.04, 0.02] },
+  obsidian: { albedo: [0.05, 0.04, 0.08], metallic: 0.05, roughness: 0.08, ambient: [0.02, 0.01, 0.03] },
+  marble:   { albedo: [0.90, 0.88, 0.85], metallic: 0.00, roughness: 0.55, ambient: [0.06, 0.06, 0.06] },
+  jade:     { albedo: [0.20, 0.55, 0.35], metallic: 0.00, roughness: 0.45, ambient: [0.03, 0.07, 0.04] },
+};
+
 function primCall(prim, cx, cy, cz, r) {
   const c = `${cx.toFixed(6)},${cy.toFixed(6)},${cz.toFixed(6)}`;
   if (prim === "cube") return `sdBox(p, vec3(${c}), vec3(${r.toFixed(6)}))`;
@@ -7,7 +17,14 @@ function primCall(prim, cx, cy, cz, r) {
   return `sdSphere(p, vec3(${c}), ${r.toFixed(6)})`;
 }
 
-export function renderHQSnapshot({ currentOps, activeGrammar, currentSeedC, currentSeedR, camera, setStatus }) {
+export function renderHQSnapshot({ currentOps, activeGrammar, currentSeedC, currentSeedR, camera, setStatus, materialKey }) {
+  const mat = MATERIALS[materialKey] || MATERIALS.bronze;
+  const g = (v) => v.toFixed(4);
+  const matGLSL = `
+  vec3 albedo = vec3(${mat.albedo.map(g).join(",")});
+  float metallic = ${g(mat.metallic)}, roughness = ${g(mat.roughness)};
+  vec3 F0 = mix(vec3(0.04), albedo, metallic);
+  vec3 ambientCol = vec3(${mat.ambient.map(g).join(",")});`;
   if (currentOps.length === 0) {
     setStatus("Nothing to render");
     return;
@@ -115,13 +132,11 @@ void main(){
     t+=d;
     if(t>20.) break;
   }
+  ${matGLSL}
   vec3 col=vec3(.02,.02,.04);
   if(t<20.){
     vec3 p=ro+rd*t, n=calcN(p), V=-rd;
     float occ=ao(p,n);
-    vec3 albedo = vec3(0.78, 0.50, 0.22);
-    float metallic = 0.9, roughness = 0.35;
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 L1=normalize(vec3(1.0, 1.5, 2.0));
     float sh1=shadow(p+n*.002, L1, 8.0);
     vec3 lc1=vec3(1.0, 0.95, 0.85) * 1.4;
@@ -139,7 +154,7 @@ void main(){
       vec3 kD = (1.0 - F) * (1.0 - metallic);
       Lo += (kD * albedo / 3.14159 + spec) * lc * NdL;
     }
-    vec3 ambient = vec3(0.08, 0.05, 0.03) * albedo * occ;
+    vec3 ambient = ambientCol * albedo * occ;
     float rim = pow(1.0 - max(dot(n, V), 0.0), 4.0);
     vec3 rimCol = vec3(0.25, 0.35, 0.5) * rim * 0.3 * occ;
     col = ambient + Lo * occ + rimCol;
