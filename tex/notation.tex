@@ -1,88 +1,165 @@
 \documentclass[11pt, a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
 \usepackage{amsmath, amssymb, amsthm}
-\usepackage{geometry}
 \usepackage{booktabs}
-\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage[utf8]{inputenc}
 \usepackage{microtype}
-\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{titletoc}
+\usepackage{xcolor}
 
-\geometry{margin=2.8cm}
+% hyperref last
+\usepackage[
+  colorlinks = true,
+  linkcolor  = teal!70!black,
+  citecolor  = teal!70!black,
+  urlcolor   = blue!60!black,
+  pdftitle   = {SierpSphere Grammar Notation},
+]{hyperref}
 
-\title{\textbf{SierpSphere Grammar Notation}\\
-       \large A compact symbolic language for fractal SDF grammars}
-\author{}
-\date{}
+% ── Page geometry ─────────────────────────────────────────────────────────────
+\geometry{margin=2.8cm, top=3.2cm, bottom=3.2cm}
 
-\newcommand{\G}[1]{\mathsf{#1}}          % group symbol
-\newcommand{\prim}[1]{\mathrm{#1}}       % primitive symbol
-\newcommand{\sub}{\ominus}               % subtract
-\newcommand{\add}{\oplus}                % add
-\newcommand{\intr}{\cap}                 % intersect
-\newcommand{\step}[4]{#1_{\prim{#2}}^{#3}{}_{#4}}   % op_P^sigma_rho
-\newcommand{\stepd}[5]{#1_{\prim{#2}}^{#3}({#4})_{#5}} % op_P^sigma(delta)_rho
-\newcommand{\gram}[2]{\G{#1}[\prim{#2}]}  % group[seed]
+% ── Colours ───────────────────────────────────────────────────────────────────
+\definecolor{accent}{RGB}{0, 120, 120}
 
+% ── Section formatting ────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{accent}}{\thesection.}{0.6em}{}[\color{accent}\titlerule]
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{accent!80!black}}{\thesubsection}{0.5em}{}
+\titleformat{\paragraph}[runin]
+  {\normalsize\bfseries}{}{0em}{}[.\enspace]
+
+\titlespacing{\section}{0pt}{1.8em}{0.6em}
+\titlespacing{\subsection}{0pt}{1.2em}{0.3em}
+
+% ── TOC ───────────────────────────────────────────────────────────────────────
+\titlecontents{section}[1.5em]
+  {\smallskip\bfseries}
+  {\contentslabel{1.5em}}{\hspace*{-1.5em}}
+  {\titlerule*[6pt]{.}\contentspage}
+\titlecontents{subsection}[3.5em]
+  {}{\contentslabel{2em}}{}
+  {\titlerule*[6pt]{.}\contentspage}
+
+% ── Grammar macros ────────────────────────────────────────────────────────────
+\newcommand{\G}[1]{\mathsf{#1}}
+\newcommand{\prim}[1]{\mathrm{#1}}
+\newcommand{\sub}{\ominus}
+\newcommand{\add}{\oplus}
+\newcommand{\intr}{\cap}
+\newcommand{\half}{\tfrac{1}{2}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+% ── Title ─────────────────────────────────────────────────────────────────────
+\title{%
+  {\color{accent}\rule{\linewidth}{2pt}}\\[6pt]
+  \textbf{\LARGE SierpSphere Grammar Notation}\\[4pt]
+  \large A compact symbolic language for fractal SDF grammars\\[6pt]
+  {\color{accent}\rule{\linewidth}{1pt}}
+}
+\author{\href{https://github.com/carlok/sierpsphere}%
+        {\texttt{github.com/carlok/sierpsphere}}}
+\date{2026}
+
+% ─────────────────────────────────────────────────────────────────────────────
 \begin{document}
+
 \maketitle
 \thispagestyle{empty}
 
-% ── 1. Motivation ──────────────────────────────────────────────────────────
-\section*{Motivation}
+\vspace{0.5em}
+{\small\tableofcontents}
+\vspace{1em}
 
-A SierpSphere grammar is fully specified by three things: a \emph{symmetry group},
-a \emph{seed primitive}, and an ordered list of \emph{iteration steps}.
+% ══ 1 ══════════════════════════════════════════════════════════════════════════
+\section{Motivation}
+\label{sec:motivation}
+
+A SierpSphere grammar is fully specified by three things: a \emph{symmetry
+group}, a \emph{seed primitive}, and an ordered list of \emph{iteration steps}.
 The JSON representation is verbose; this notation condenses a grammar to a
 single line amenable to comparison, mutation logging, and typeset publication.
+For the broader context see
+\href{journey.pdf}{\emph{Growing Metal Lace}}.
 
-% ── 2. Alphabet ────────────────────────────────────────────────────────────
-\section*{Alphabet}
+% ══ 2 ══════════════════════════════════════════════════════════════════════════
+\section{Alphabet}
+\label{sec:alphabet}
 
-\paragraph{Symmetry groups} (Schoenflies notation)
+\subsection{Symmetry groups}
+\label{subsec:groups}
+
+Symmetry groups are denoted by their Schoenflies symbols:
+
 \[
   \G{T_d} \quad \G{O_h} \quad \G{I_h}
 \]
-corresponding to \textit{tetrahedral}, \textit{octahedral}, and
-\textit{icosahedral} point groups respectively.
 
-\paragraph{Primitives}
+corresponding to the \textit{tetrahedral} (4 axes),
+\textit{octahedral} (6 axes), and \textit{icosahedral} (12 axes) point groups
+respectively.
+
+\subsection{Primitives}
+\label{subsec:primitives}
+
 \[
   \prim{S} = \text{sphere} \qquad
   \prim{C} = \text{cube}   \qquad
   \prim{O} = \text{octahedron}
 \]
 
-\paragraph{Operations}
+\subsection{Boolean operations}
+\label{subsec:ops}
+
 \[
   \sub = \text{smooth-subtract} \qquad
   \add = \text{smooth-union}    \qquad
   \intr = \text{smooth-intersect}
 \]
 
-% ── 3. Step notation ───────────────────────────────────────────────────────
-\section*{Step notation}
+All three operations accept a blending radius $\rho \geq 0$; at $\rho = 0$ they
+reduce to standard sharp Boolean operations.
 
-A single iteration step carrying parameters
-$(\sigma, \delta, \rho) \in (0,1)\times\mathbb{R}_{>0}\times\mathbb{R}_{\ge 0}$
-is written:
+% ══ 3 ══════════════════════════════════════════════════════════════════════════
+\section{Step Notation}
+\label{sec:step}
+
+\subsection{Parameters}
+\label{subsec:params}
+
+Each iteration step carries three real parameters
+$(\sigma, \delta, \rho)$ defined in \autoref{tab:params}.
+
+\begin{table}[h]
+\centering
+\caption{Step parameters.}
+\label{tab:params}
+\begin{tabular}{cllr}
+\toprule
+Symbol & JSON field & Meaning & Omit when \\
+\midrule
+$\sigma$ & \code{scale\_factor}    & Child size relative to parent   & never \\
+$\delta$ & \code{distance\_factor} & Placement along symmetry axis   & $\delta = 1$ \\
+$\rho$   & \code{smooth\_radius}   & Boolean blending width          & $\rho = 0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Step formula}
+\label{subsec:step_formula}
 
 \[
   \boxed{\; \mathrm{op}_{\prim{P}}^{\,\sigma}(\delta)_{\rho} \;}
 \]
 
-\begin{center}
-\begin{tabular}{lll}
-\toprule
-Symbol & Parameter & Default (omit when) \\
-\midrule
-$\sigma$ & \texttt{scale\_factor} — child size relative to parent & — (always shown) \\
-$\delta$ & \texttt{distance\_factor} — placement along symmetry axis & 1 (omit when $\delta=1$) \\
-$\rho$   & \texttt{smooth\_radius} — Boolean blending width & 0 (omit when $\rho=0$) \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\medskip
-\noindent Examples of a single step:
+\noindent Examples:
 \[
   \sub_{\prim{S}}^{0.5}{}_{\!0.02}
   \qquad
@@ -91,8 +168,9 @@ $\rho$   & \texttt{smooth\_radius} — Boolean blending width & 0 (omit when $\r
   \intr_{\prim{O}}^{0.45}
 \]
 
-% ── 4. Full grammar formula ────────────────────────────────────────────────
-\section*{Full grammar formula}
+% ══ 4 ══════════════════════════════════════════════════════════════════════════
+\section{Full Grammar Formula}
+\label{sec:formula}
 
 \[
   \boxed{\;
@@ -100,19 +178,19 @@ $\rho$   & \texttt{smooth\_radius} — Boolean blending width & 0 (omit when $\r
   \;}
 \]
 
-where $\G{G}$ is the symmetry group, $\prim{P_0}$ the seed primitive, and
-$s_1, \ldots, s_n$ are steps applied in order.
+where $\G{G}$ is the symmetry group (\autoref{subsec:groups}),
+$\prim{P_0}$ the seed primitive (\autoref{subsec:primitives}),
+and $s_1, \ldots, s_n$ are steps (\autoref{sec:step}) applied in order.
 Steps act on \emph{new} nodes by default; a trailing ${}^{\!\star}$
-marks \texttt{apply\_to: all}.
+marks \code{apply\_to: all}.
 
-% ── 5. Named grammars ──────────────────────────────────────────────────────
-\section*{Named grammars}
+% ══ 5 ══════════════════════════════════════════════════════════════════════════
+\section{Named Grammars}
+\label{sec:named}
 
-\newcommand{\half}{\tfrac{1}{2}}
-
-\paragraph{\texttt{sierpinski\_classic}}
-Classic tetrahedral Sierpi\'nski gasket from a sphere seed,
-alternating subtract / union / subtract with decreasing smoothness.
+\paragraph{\code{sierpinski\_classic}}
+Classic tetrahedral Sierpi\'nski gasket — sphere seed, alternating
+subtract/union/subtract with decreasing smoothness.
 \[
   \Gamma_{\mathrm{classic}}
   = \G{T_d}[\prim{S}]
@@ -121,7 +199,7 @@ alternating subtract / union / subtract with decreasing smoothness.
   \cdot \sub_{\prim{S}}^{\half}{}_{\!0.005}
 \]
 
-\paragraph{\texttt{sierpinski\_octahedron}}
+\paragraph{\code{sierpinski\_octahedron}}
 Same alternating pattern, octahedron seed and primitives under $\G{T_d}$.
 \[
   \Gamma_{\mathrm{oct}}
@@ -131,18 +209,17 @@ Same alternating pattern, octahedron seed and primitives under $\G{T_d}$.
   \cdot \sub_{\prim{O}}^{\half}{}_{\!0.005}
 \]
 
-\paragraph{\texttt{sierpinski\_cube}}
-Pure additive cube fractal — each step unions scaled cubes
-along tetrahedral axes.
+\paragraph{\code{sierpinski\_cube}}
+Subtractive cube fractal under $\G{T_d}$.
 \[
   \Gamma_{\mathrm{cube}}
   = \G{T_d}[\prim{C}]
-  : \add_{\prim{C}}^{\half}{}_{\!0.02}
+  : \sub_{\prim{C}}^{\half}{}_{\!0.02}
   \cdot \add_{\prim{C}}^{\half}{}_{\!0.01}
-  \cdot \add_{\prim{C}}^{\half}{}_{\!0.005}
+  \cdot \sub_{\prim{C}}^{\half}{}_{\!0.005}
 \]
 
-\paragraph{\texttt{sierpinski\_void}}
+\paragraph{\code{sierpinski\_void}}
 Four-step icosahedral grammar producing high-genus void structure.
 \[
   \Gamma_{\mathrm{void}}
@@ -153,10 +230,14 @@ Four-step icosahedral grammar producing high-genus void structure.
   \cdot \add_{\prim{S}}^{\half}{}_{\!0.01}
 \]
 
-% ── 6. Mutation shorthand ──────────────────────────────────────────────────
-\section*{Mutation shorthand}
+% ══ 6 ══════════════════════════════════════════════════════════════════════════
+\section{Mutation and Crossover Shorthand}
+\label{sec:mutation}
 
-During evolution, a grammar can be reported as a delta from a named parent:
+\subsection{Point mutation}
+\label{subsec:point_mutation}
+
+A grammar reporting a delta from a named parent:
 \[
   \Gamma' = \Gamma_{\mathrm{classic}}
   \;\Big[\;
@@ -164,21 +245,62 @@ During evolution, a grammar can be reported as a delta from a named parent:
     s_3 \mapsto \sub_{\prim{C}}^{0.53}{}_{\!0.003}
   \;\Big]
 \]
-or as a crossover product:
+
+\subsection{Crossover}
+\label{subsec:crossover}
+
+A crossover product with single cut point at position 2:
 \[
   \Gamma' = \Gamma_{\mathrm{classic}}[{:}2] \mathbin{|} \Gamma_{\mathrm{void}}[2{:}]
 \]
-meaning: steps 1–2 from \emph{classic}, steps 3–4 from \emph{void}.
+meaning: steps 1--2 from $\Gamma_{\mathrm{classic}}$, steps 3--4 from
+$\Gamma_{\mathrm{void}}$.
 
-% ── 7. Fitness annotation ──────────────────────────────────────────────────
-\section*{Fitness annotation}
+% ══ 7 ══════════════════════════════════════════════════════════════════════════
+\section{Fitness Annotation}
+\label{sec:fitness}
 
-A fully evaluated grammar is annotated:
+A fully evaluated grammar is annotated with its fitness vector:
 \[
   \Gamma_{\mathrm{void}} \xrightarrow{\;\mathcal{F}\;}
   \bigl(\,f = 0.734,\; d_f = 2.51,\; t_{\min} = 0.82\,\mathrm{mm}\bigr)
 \]
-where $f$ is total fitness, $d_f$ the estimated fractal dimension,
-and $t_{\min}$ the minimum wall thickness at $80\,\mathrm{mm}$ scale.
+where $f$ is total fitness (see \href{journey.pdf}{\emph{journey.tex}} for
+the full weight table), $d_f$ the estimated fractal dimension, and $t_{\min}$
+the minimum wall thickness at $80\,\mathrm{mm}$ scale.
+
+% ══ 8 ══════════════════════════════════════════════════════════════════════════
+\section{POSIX Filename Slugs}
+\label{sec:slugs}
+
+The display notation uses \code{+}, \code{:}, \code{@} which are
+shell-unfriendly. Gallery filenames use a safe bijective encoding
+(\autoref{tab:slugmap}):
+
+\begin{table}[h]
+\centering
+\caption{Display $\to$ slug character map.}
+\label{tab:slugmap}
+\begin{tabular}{ccl}
+\toprule
+Display & Slug & Meaning \\
+\midrule
+\code{-} & \code{N} & subtract (Nix) \\
+\code{+} & \code{P} & add (Plus) \\
+\code{x} & \code{X} & intersect \\
+\code{:47} & \code{k47} & scale $\sigma = 0.47$ \\
+\code{@1.1} & \code{d110} & distance $\delta = 1.10$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Example:
+
+\medskip
+\begin{tabular}{ll}
+Display: & \code{Td.S. -s4 +s2 -s1} \\
+Slug:    & \code{Td.S.Ns4Ps2Ns1} \\
+Filename: & \code{rank\_01\_Td.S.Ns4Ps2Ns1.glb} \\
+\end{tabular}
 
 \end{document}
