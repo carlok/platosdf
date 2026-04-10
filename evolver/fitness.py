@@ -17,13 +17,14 @@ WEIGHTS = {
     "aspect_ratio":          0.03,
     "min_wall_thickness":    0.15,
     "min_feature_size":      0.08,
-    "drain_openings":        0.08,
+    "drain_openings":        0.05,
     "enclosed_voids":        0.03,
     "no_islands":            0.03,
     "thermal_mass_variance": 0.05,
     "support_volume_ratio":  0.05,
     "silhouette_complexity": 0.05,
     "primitive_diversity":   0.02,
+    "fill_ratio":            0.03,
 }
 
 
@@ -66,6 +67,7 @@ def compute_fitness(
     # ── Manufacturing ─────────────────────────────────────────────────────
     scores["thermal_mass_variance"] = _thermal_mass(mesh)
     scores["support_volume_ratio"]  = _support_ratio(mesh)
+    scores["fill_ratio"]            = _fill_ratio(mesh)
     scores["drain_openings"]        = 1.0  # guaranteed: no enclosed voids passed
 
     fitness = sum(WEIGHTS[k] * scores.get(k, 0.0) for k in WEIGHTS)
@@ -284,6 +286,20 @@ def _primitive_diversity(grammar: dict) -> float:
     step_distinct = len(set(step_prims))
     mix_bonus = 0.1 if step_distinct > 1 else 0.0
     return float(min(1.0, base + mix_bonus))
+
+
+def _fill_ratio(mesh: trimesh.Trimesh) -> float:
+    """
+    Reward low fill: 1 - (mesh.volume / convex_hull.volume).
+    Score 1 = maximally hollow/carved, 0 = solid blob.
+    Encourages the GA to carve material out rather than grow blobs.
+    """
+    try:
+        hull_vol = mesh.convex_hull.volume + 1e-9
+        fill = float(mesh.volume / hull_vol)
+        return float(np.clip(1.0 - fill, 0.0, 1.0))
+    except Exception:
+        return 0.5
 
 
 def _support_ratio(mesh: trimesh.Trimesh) -> float:

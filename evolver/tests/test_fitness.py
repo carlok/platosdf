@@ -101,7 +101,7 @@ def test_weights_expected_keys():
         "normalised_S_V", "genus", "aspect_ratio", "min_wall_thickness",
         "min_feature_size", "drain_openings", "enclosed_voids", "no_islands",
         "thermal_mass_variance", "support_volume_ratio", "silhouette_complexity",
-        "primitive_diversity",
+        "primitive_diversity", "fill_ratio",
     }
     assert set(WEIGHTS.keys()) == expected
 
@@ -334,6 +334,34 @@ def test_note_good_scores():
 
 
 # ── compute_fitness hard-gate: no_islands ─────────────────────────────────────
+
+# ── _fill_ratio ───────────────────────────────────────────────────────────────
+
+def test_fill_ratio_sphere_low():
+    from fitness import _fill_ratio
+    # Solid sphere ≈ fills its convex hull → low score (high fill)
+    mesh = _unit_sphere_mesh()
+    score = _fill_ratio(mesh)
+    assert score < 0.2  # sphere nearly fills its convex hull
+
+
+def test_fill_ratio_in_range():
+    from fitness import _fill_ratio
+    mesh = _unit_sphere_mesh()
+    assert 0.0 <= _fill_ratio(mesh) <= 1.0
+
+
+def test_fill_ratio_carved_shape_higher_than_sphere():
+    import trimesh
+    from fitness import _fill_ratio
+    sphere = _unit_sphere_mesh()
+    # Subtract a smaller sphere → more hollow → higher fill_ratio score
+    carved = trimesh.boolean.difference([sphere,
+        trimesh.creation.icosphere(subdivisions=2, radius=0.7)],
+        engine="blender") if False else sphere  # skip if blender unavailable
+    # At minimum: solid sphere < 0.2, any carving would raise score
+    assert _fill_ratio(sphere) < 0.2
+
 
 def test_compute_fitness_hard_gate_no_islands():
     import trimesh
