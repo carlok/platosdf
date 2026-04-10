@@ -116,3 +116,83 @@ def test_grammar_slug_distance_encoded_with_d():
     g["iterations"][0]["distance_factor"] = 1.1
     slug = grammar_slug(g)
     assert "d110" in slug
+
+
+def test_grammar_name_intersect_shows_x():
+    g = _classic()
+    g["iterations"][0]["operation"] = "intersect"
+    name = grammar_name(g)
+    assert "x" in name.split(".", 2)[2]
+
+
+def test_grammar_slug_intersect_shows_X():
+    g = _classic()
+    g["iterations"][0]["operation"] = "intersect"
+    slug = grammar_slug(g)
+    assert "X" in slug.split(".", 2)[2]
+
+
+def test_grammar_name_no_iterations():
+    g = _classic()
+    g["iterations"] = []
+    name = grammar_name(g)
+    # Should still have group.seed. prefix, steps empty
+    parts = name.split(".")
+    assert parts[0] == "Td"
+    assert parts[1] == "S"
+    assert parts[2] == ""
+
+
+def test_grammar_slug_no_iterations():
+    g = _classic()
+    g["iterations"] = []
+    slug = grammar_slug(g)
+    assert slug == "Td.S."
+    assert POSIX_SAFE.match(slug)
+
+
+def test_grammar_name_steps_space_separated():
+    g = _classic()  # 3 steps
+    name = grammar_name(g)
+    steps_part = name.split(".", 2)[2]
+    # display name separates steps with spaces
+    assert " " in steps_part
+
+
+def test_grammar_slug_steps_no_spaces():
+    slug = grammar_slug(_classic())
+    assert " " not in slug
+
+
+def test_grammar_name_smooth_zero_gives_rho0():
+    g = _classic()
+    g["iterations"] = [{"operation": "subtract", "primitive": "sphere",
+                         "scale_factor": 0.5, "distance_factor": 1.0,
+                         "smooth_radius": 0.0}]
+    name = grammar_name(g)
+    assert "-s0" in name
+
+
+def test_grammar_slug_octahedron_seed():
+    g = _classic()
+    g["seed"]["type"] = "octahedron"
+    slug = grammar_slug(g)
+    assert slug.startswith("Td.O.")
+
+
+def test_grammar_slug_cube_primitive():
+    g = _classic()
+    g["iterations"] = [{"operation": "add", "primitive": "cube",
+                         "scale_factor": 0.5, "distance_factor": 1.0,
+                         "smooth_radius": 0.01}]
+    slug = grammar_slug(g)
+    assert "Pc2" in slug
+
+
+def test_grammar_name_add_shows_plus():
+    g = _classic()
+    g["iterations"] = [{"operation": "add", "primitive": "sphere",
+                         "scale_factor": 0.5, "distance_factor": 1.0,
+                         "smooth_radius": 0.01}]
+    name = grammar_name(g)
+    assert "+s" in name

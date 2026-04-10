@@ -153,3 +153,111 @@ def test_tournament_select_k1_random():
     fits = [1.0] * 5
     winners = {tournament_select(pop, fits, k=1)["id"] for _ in range(30)}
     assert len(winners) > 1, "k=1 should pick randomly"
+
+
+def test_tournament_select_result_in_population():
+    pop = [{"id": i} for i in range(10)]
+    fits = list(range(10))
+    for _ in range(20):
+        winner = tournament_select(pop, fits, k=3)
+        assert winner in pop
+
+
+# ── additional random_grammar_pure ───────────────────────────────────────────
+
+def test_random_grammar_pure_operations_valid():
+    for _ in range(30):
+        g = random_grammar_pure()
+        for it in g["iterations"]:
+            assert it["operation"] in OPERATIONS
+
+
+def test_random_grammar_pure_primitives_valid():
+    for _ in range(30):
+        g = random_grammar_pure()
+        for it in g["iterations"]:
+            assert it["primitive"] in PRIMITIVES
+
+
+def test_random_grammar_pure_smooth_radius_non_negative():
+    for _ in range(30):
+        g = random_grammar_pure()
+        for it in g["iterations"]:
+            assert it["smooth_radius"] >= 0.0
+
+
+def test_random_grammar_pure_distance_factor_positive():
+    for _ in range(30):
+        g = random_grammar_pure()
+        for it in g["iterations"]:
+            assert it["distance_factor"] > 0.0
+
+
+# ── additional mutate ─────────────────────────────────────────────────────────
+
+def test_mutate_high_rate_changes_something():
+    import random as _random
+    _random.seed(42)
+    g = _base_grammar()
+    changed = False
+    for _ in range(20):
+        g2 = mutate(g, rate=1.0)
+        if (g2["symmetry_group"] != g["symmetry_group"] or
+                g2["seed"]["type"] != g["seed"]["type"] or
+                g2["iterations"][0]["operation"] != g["iterations"][0]["operation"]):
+            changed = True
+            break
+    assert changed, "rate=1.0 should change at least one field across 20 tries"
+
+
+def test_mutate_first_step_stays_valid():
+    for _ in range(30):
+        g = _base_grammar()
+        g2 = mutate(g, rate=1.0)
+        assert g2["iterations"][0]["operation"] in OPERATIONS
+
+
+# ── additional crossover ──────────────────────────────────────────────────────
+
+def test_crossover_symmetry_from_parents():
+    a = _base_grammar()
+    b = {**_base_grammar(), "symmetry_group": "octahedral"}
+    b["iterations"].append({"operation": "add", "primitive": "cube",
+                             "scale_factor": 0.4, "distance_factor": 1.0,
+                             "smooth_radius": 0.01, "apply_to": "new"})
+    parent_syms = {a["symmetry_group"], b["symmetry_group"]}
+    for _ in range(10):
+        ca, cb = crossover(a, b)
+        assert ca["symmetry_group"] in parent_syms
+        assert cb["symmetry_group"] in parent_syms
+
+
+def test_crossover_children_valid_operations():
+    a = _base_grammar()
+    b = {**_base_grammar()}
+    b["iterations"] = [{"operation": "intersect", "primitive": "octahedron",
+                         "scale_factor": 0.3, "distance_factor": 0.9,
+                         "smooth_radius": 0.0, "apply_to": "new"}]
+    for _ in range(10):
+        ca, cb = crossover(a, b)
+        for it in ca["iterations"] + cb["iterations"]:
+            assert it["operation"] in OPERATIONS
+
+
+# ── additional diverse_population ─────────────────────────────────────────────
+
+def test_diverse_population_all_valid_structure():
+    pop = diverse_population(24)
+    for g in pop:
+        assert "seed" in g
+        assert "symmetry_group" in g
+        assert "iterations" in g
+        assert len(g["iterations"]) >= 1
+        assert g["seed"]["type"] in PRIMITIVES
+        assert g["symmetry_group"] in SYMMETRIES
+
+
+def test_diverse_population_no_empty_iterations():
+    pop = diverse_population(24)
+    for g in pop:
+        assert len(g["iterations"]) >= 1
