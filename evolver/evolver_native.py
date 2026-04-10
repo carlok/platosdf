@@ -70,17 +70,39 @@ def evaluate_individual(grammar: dict, cfg: dict) -> dict:
                 "scores": {}, "manufacturing_note": str(exc)[:120]}
 
 
+def _worker_init():
+    """Per-worker initialisation — each process gets its own MPS context."""
+    import torch
+    if torch.backends.mps.is_available():
+        # warm up MPS in this process
+        _ = torch.zeros(1, device="mps")
+
+
+def _worker_eval(args):
+    """Top-level function (picklable) for multiprocessing."""
+    grammar, cfg = args
+    return evaluate_individual(grammar, cfg)
+
+
 def evaluate_population(population: list[dict], cfg: dict) -> list[dict]:
-    """Evaluate sequentially — Metal GPU is fast enough without multiprocessing."""
-    results = []
-    for i, g in enumerate(population):
-        r = evaluate_individual(g, cfg)
+    """Evaluate population in parallel — one MPS context per worker process."""
+    import multiprocessing as mp
+    n_workers = min(len(population), mp.cpu_count())
+
+    # 'spawn' is required on macOS (fork + MPS = crash)
+    ctx = mp.get_context("spawn")
+    args = [(g, cfg) for g in population]
+
+    with ctx.Pool(processes=n_workers, initializer=_worker_init) as pool:
+        results = pool.map(_worker_eval, args)
+
+    # Print summary after all results arrive
+    for i, (g, r) in enumerate(zip(population, results)):
         print(f"  [{i+1:02d}/{len(population)}] "
               f"f={r['fitness']:.4f}  "
               f"{grammar_name(g)}"
               + (f"  ✗ {r['hard_gate_failed']}" if r.get("hard_gate_failed") else ""),
               flush=True)
-        results.append(r)
     return results
 
 
@@ -255,6 +277,10 @@ def run(args):
 
 
 if __name__ == "__main__":
+    # Required for 'spawn' multiprocessing on macOS
+    import multiprocessing
+    multiprocessing.freeze_support()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=0)
     parser.add_argument("--resume", action="store_true")

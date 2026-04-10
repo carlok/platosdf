@@ -56,6 +56,19 @@ services:
     command: >
       sh -c "npm install --silent && npm run test:coverage"
 
+  test-evolver:
+    build:
+      context: ./evolver
+    profiles: [test]
+    working_dir: /app
+    volumes:
+      - ./evolver/fitness.py:/app/fitness.py:ro
+      - ./evolver/mutate.py:/app/mutate.py:ro
+      - ./evolver/grammar_name.py:/app/grammar_name.py:ro
+      - ./evolver/tests:/app/tests:ro
+      - ./evolver/pytest.ini:/app/pytest.ini:ro
+    command: ["pytest"]
+
   evolver:
     build:
       context: ./evolver
