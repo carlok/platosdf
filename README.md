@@ -37,8 +37,8 @@ sierpsphere/
 │   ├── evolver.py                  # GA orchestrator (Podman / CPU multiprocessing)
 │   ├── evolver_native.py           # GA orchestrator (macOS Metal / PyTorch MPS)
 │   ├── sdf_metal.py                # GPU-accelerated SDF grid sampler (MPS tensors)
-│   ├── fitness.py                  # 15 trimesh-based fitness metrics + hard gates
-│   ├── mutate.py                   # mutation, crossover, tournament selection
+│   ├── fitness.py                  # 15 trimesh-based fitness metrics + hard gates + primitive_diversity
+│   ├── mutate.py                   # mutation, crossover, tournament selection, diverse_population()
 │   ├── grammar_name.py             # compact name/slug encoder (Td.S.Ns4Ps2Ns1)
 │   ├── config.json                 # GA hyperparameters
 │   ├── requirements.txt            # Podman deps
@@ -321,6 +321,64 @@ Drop a new JSON file into `grammar/`. The engine picks it up automatically (the 
 - **`distance_factor` < 1.0** pulls children inward, creating tighter nesting
 - **`apply_to: "new"`** limits exponential growth — only the most recent children expand
 - Be careful with **icosahedral + more than 3 iterations** — the operation count explodes (12^n children)
+
+---
+
+## Grammar evolver
+
+A genetic algorithm searches the grammar space for forms that are both
+visually complex and manufacturable as metal 3D prints (DMLS/SLM at 80 mm scale).
+
+### Running natively on macOS (Apple Silicon — recommended)
+
+```bash
+bash evolver/run_native.sh          # fresh run
+bash evolver/run_native.sh --resume # continue from last saved population
+```
+
+First run creates `.venv-evolver/` and installs PyTorch + trimesh (~2 GB, once).
+The SDF grid is evaluated on Metal GPU via PyTorch MPS — ~100× faster than CPU.
+
+### Running in Podman (cross-platform)
+
+```bash
+podman compose --profile evolve build evolver
+podman compose --profile evolve run --rm evolver python evolver.py
+```
+
+### GA design
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Population | 24 | Equal thirds: sphere / cube / octahedron seeds |
+| Tournament k | 2 | Weak selection — preserves diversity |
+| Elitism | 2 global + 1 per seed type | Cubes/octahedra never go extinct |
+| Mutation rate | 0.35 | Numeric jitter + categorical swap + add/remove step |
+| Crossover rate | 0.5 | Single-point on iteration-step list |
+| Eval resolution | 28³ | ~3 s/individual on M-series |
+| Save resolution | 64³ | Epoch winner saved at higher quality |
+
+### Fitness function (15 metrics, weights sum to 1.0)
+
+**Hard gates** (failure → fitness = 0):
+- Single connected component (no floating islands)
+- Watertight mesh (no enclosed powder traps)
+- Minimum wall thickness ≥ 0.3 mm at 80 mm scale
+
+**Aesthetic** (53%): fractal dimension · curvature variance · genus · normalised S/V · aspect ratio · symmetry preservation · silhouette complexity · primitive diversity
+
+**Manufacturing** (47%): min wall thickness · min feature size · drain openings · thermal mass uniformity · support volume ratio · enclosed voids · no islands
+
+Gallery output is written to `gallery/` (gitignored):
+```
+gallery/
+├── manifest.json              # epoch index
+└── epoch_0001/
+    ├── overview.glb           # all top-5 side by side
+    ├── rank_01_Td.S.Ns4Ps2Ns1.glb
+    ├── rank_01_Td.S.Ns4Ps2Ns1_grammar.json
+    └── fitness_log.json
+```
 
 ---
 

@@ -22,6 +22,10 @@ def mutate(grammar: dict, rate: float = 0.25) -> dict:
     if random.random() < rate * 0.3:
         g["symmetry_group"] = random.choices(SYMMETRIES, weights=SYM_WEIGHTS)[0]
 
+    # Seed primitive (very low probability — changes overall character)
+    if random.random() < rate * 0.15:
+        g["seed"]["type"] = random.choice(PRIMITIVES)
+
     iters = g.get("iterations", [])
 
     # Per-step mutations
@@ -85,6 +89,56 @@ def random_grammar(seed_grammars: list[dict]) -> dict:
     """Random grammar seeded from an existing one with heavy mutation."""
     base = copy.deepcopy(random.choice(seed_grammars))
     return mutate(base, rate=0.6)
+
+
+def random_grammar_pure(n_steps: int | None = None, seed_type: str | None = None) -> dict:
+    """
+    Fully random grammar — no seed files involved.
+    `seed_type` pins the seed primitive (for guaranteed diversity).
+    First step always carves to avoid solid-blob hard-gate failures.
+    """
+    if n_steps is None:
+        n_steps = random.randint(1, 4)
+
+    symmetry  = random.choices(SYMMETRIES, weights=SYM_WEIGHTS)[0]
+    seed_prim = seed_type or random.choice(PRIMITIVES)
+
+    steps = []
+    for i in range(n_steps):
+        op = random.choice(["subtract", "intersect"]) if i == 0 else random.choice(OPERATIONS)
+        steps.append({
+            "operation":       op,
+            "primitive":       random.choice(PRIMITIVES),
+            "scale_factor":    round(random.uniform(0.25, 0.55), 3),
+            "distance_factor": round(random.uniform(0.8,  1.2),  3),
+            "smooth_radius":   round(random.uniform(0.0,  0.06),  4),
+            "apply_to":        "new",
+        })
+
+    return {
+        "seed":           {"type": seed_prim, "radius": 1.0, "center": [0, 0, 0]},
+        "symmetry_group": symmetry,
+        "iterations":     steps,
+        "render":         {"resolution": 128, "bounds": 1.8, "color_mode": "iteration"},
+    }
+
+
+def diverse_population(pop_size: int) -> list[dict]:
+    """
+    Build a maximally diverse initial population.
+    Equal thirds of each seed type, varied step counts and symmetries.
+    """
+    population = []
+    per_type = pop_size // len(PRIMITIVES)
+    for prim in PRIMITIVES:
+        for _ in range(per_type):
+            n = random.randint(1, 4)
+            population.append(random_grammar_pure(n_steps=n, seed_type=prim))
+    # Fill remainder randomly
+    while len(population) < pop_size:
+        population.append(random_grammar_pure())
+    random.shuffle(population)
+    return population
 
 
 def tournament_select(population: list[dict], fitnesses: list[float], k: int = 4) -> dict:

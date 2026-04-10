@@ -28,9 +28,9 @@ sys.path.insert(0, str(ROOT / "engine"))   # sdf.py, grammar_store.py
 sys.path.insert(0, str(Path(__file__).parent))  # fitness.py, mutate.py, grammar_name.py
 
 from sdf import SierpSphereEvaluator
-from grammar_store import list_grammar_names, load_grammar
+from grammar_store import list_grammar_names, load_grammar  # kept for --resume path
 from fitness import compute_fitness
-from mutate import crossover, mutate, random_grammar, tournament_select
+from mutate import crossover, mutate, diverse_population, tournament_select
 from grammar_name import grammar_name, grammar_slug
 from sdf_metal import extract_mesh_metal, device_info
 
@@ -178,15 +178,8 @@ def print_epoch(epoch, population, results, elapsed):
 # ── Seed population ───────────────────────────────────────────────────────────
 
 def build_seed_population(cfg):
-    grammar_dir = Path(cfg["grammar_dir"])
-    names = list_grammar_names(grammar_dir)
-    seeds = [load_grammar(grammar_dir, n) for n in names]
-    if not seeds:
-        raise RuntimeError(f"No grammars found in {grammar_dir}")
-    population = list(seeds)
-    while len(population) < cfg["pop_size"]:
-        population.append(random_grammar(seeds))
-    return population[:cfg["pop_size"]]
+    """Diverse random population — equal thirds of each seed type."""
+    return diverse_population(cfg["pop_size"])
 
 
 # ── GA ────────────────────────────────────────────────────────────────────────
@@ -195,6 +188,18 @@ def next_generation(population, results, cfg):
     fitnesses = [r["fitness"] for r in results]
     ranked = sorted(range(len(fitnesses)), key=lambda i: fitnesses[i], reverse=True)
     next_pop = [copy.deepcopy(population[i]) for i in ranked[:cfg["elitism_k"]]]
+
+    # Type elitism: keep best viable of each seed type
+    for prim in ["sphere", "cube", "octahedron"]:
+        best_idx = next(
+            (i for i in ranked
+             if population[i].get("seed", {}).get("type") == prim
+             and fitnesses[i] > 0
+             and population[i] not in next_pop),
+            None
+        )
+        if best_idx is not None:
+            next_pop.append(copy.deepcopy(population[best_idx]))
     while len(next_pop) < cfg["pop_size"]:
         if np.random.random() < cfg["crossover_rate"] and len(population) >= 2:
             pa = tournament_select(population, fitnesses, cfg["tournament_k"])

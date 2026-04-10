@@ -11,7 +11,7 @@
     "symmetry_group": "tetrahedral",
     "iterations": [
         {
-            "operation": "add",
+            "operation": "subtract",
             "primitive": "cube",
             "scale_factor": 0.5,
             "distance_factor": 1.0,

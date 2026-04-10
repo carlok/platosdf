@@ -23,7 +23,7 @@ WEIGHTS = {
     "thermal_mass_variance": 0.05,
     "support_volume_ratio":  0.05,
     "silhouette_complexity": 0.05,
-    "self_similarity":       0.02,
+    "primitive_diversity":   0.02,
 }
 
 
@@ -61,7 +61,7 @@ def compute_fitness(
     scores["aspect_ratio"]          = _aspect_ratio(mesh)
     scores["symmetry_preservation"] = _symmetry(mesh, grammar)
     scores["silhouette_complexity"] = _silhouette(mesh)
-    scores["self_similarity"]       = 0.5  # placeholder — needs multi-scale SDF
+    scores["primitive_diversity"]   = _primitive_diversity(grammar)
 
     # ── Manufacturing ─────────────────────────────────────────────────────
     scores["thermal_mass_variance"] = _thermal_mass(mesh)
@@ -265,6 +265,25 @@ def _thermal_mass(mesh: trimesh.Trimesh) -> float:
         return float(np.exp(-std / 0.15))
     except Exception:
         return 0.5
+
+
+def _primitive_diversity(grammar: dict) -> float:
+    """
+    Reward grammars that mix primitive types across steps AND between seed and steps.
+    Score = fraction of distinct primitives used out of 3 possible,
+    boosted when seed type differs from at least one step primitive.
+    0 → all same primitive everywhere  |  1 → all three types present
+    """
+    seed_type = grammar.get("seed", {}).get("type", "sphere")
+    step_prims = [it.get("primitive", "sphere") for it in grammar.get("iterations", [])]
+    all_prims = [seed_type] + step_prims
+    n_distinct = len(set(all_prims))
+    # fraction of distinct types (max 3)
+    base = (n_distinct - 1) / 2.0   # 0 if all same, 0.5 if two types, 1.0 if all three
+    # bonus: seed type not repeated monotonously in steps
+    step_distinct = len(set(step_prims))
+    mix_bonus = 0.1 if step_distinct > 1 else 0.0
+    return float(min(1.0, base + mix_bonus))
 
 
 def _support_ratio(mesh: trimesh.Trimesh) -> float:

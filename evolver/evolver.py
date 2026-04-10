@@ -26,7 +26,7 @@ sys.path.insert(0, "/app")
 from sdf import SierpSphereEvaluator, extract_mesh
 from grammar_store import list_grammar_names, load_grammar
 from fitness import compute_fitness
-from mutate import crossover, mutate, random_grammar, tournament_select
+from mutate import crossover, mutate, diverse_population, random_grammar_pure, tournament_select
 from grammar_name import grammar_name, grammar_slug
 
 
@@ -178,16 +178,8 @@ def print_epoch(epoch: int, population: list[dict], results: list[dict], elapsed
 # ── Seed population ───────────────────────────────────────────────────────
 
 def build_seed_population(cfg: dict) -> list[dict]:
-    grammar_dir = Path(cfg["grammar_dir"])
-    names = list_grammar_names(grammar_dir)
-    seeds = [load_grammar(grammar_dir, n) for n in names]
-    if not seeds:
-        raise RuntimeError(f"No grammars found in {grammar_dir}")
-
-    population = list(seeds)  # include originals
-    while len(population) < cfg["pop_size"]:
-        population.append(random_grammar(seeds))
-    return population[: cfg["pop_size"]]
+    """Diverse random population — equal thirds of each seed type."""
+    return diverse_population(cfg["pop_size"])
 
 
 # ── Main GA loop ──────────────────────────────────────────────────────────
@@ -205,6 +197,18 @@ def next_generation(
     # Elitism: carry top-k unchanged
     for i in ranked[: cfg["elitism_k"]]:
         next_pop.append(copy.deepcopy(population[i]))
+
+    # Type elitism: keep best viable individual of each seed type
+    for prim in ["sphere", "cube", "octahedron"]:
+        best_idx = next(
+            (i for i in ranked
+             if population[i].get("seed", {}).get("type") == prim
+             and fitnesses[i] > 0
+             and population[i] not in next_pop),
+            None
+        )
+        if best_idx is not None:
+            next_pop.append(copy.deepcopy(population[best_idx]))
 
     # Fill rest via crossover + mutation
     while len(next_pop) < cfg["pop_size"]:
