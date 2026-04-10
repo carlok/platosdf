@@ -14,23 +14,45 @@ sierpsphere/
 ├── sierpsphere_hq_b.png            # example HQ snapshot (bronze, tetrahedral, 3 iters)
 ├── grammar/
 │   ├── schema.json                 # JSON Schema for the grammar DSL
-│   ├── sierpinski_classic.json     # sphere preset
-│   ├── sierpinski_cube.json        # cube preset
-│   └── sierpinski_octahedron.json  # octahedron preset
+│   ├── sierpinski_classic.json     # sphere · tetrahedral · sub/add/sub
+│   ├── sierpinski_cube.json        # cube · tetrahedral · add/add/add
+│   ├── sierpinski_octahedron.json  # octahedron · tetrahedral · sub/add/sub
+│   └── sierpinski_void.json        # sphere · icosahedral · 4-step void
 ├── engine/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   ├── grammar_store.py            # preset discovery + loading
 │   ├── sdf.py                      # SDF evaluator + marching cubes + GLB export
-│   ├── server.py                   # Flask REST API
+│   ├── server.py                   # Flask REST API (grammar, mesh, gallery endpoints)
 │   └── tests/                      # pytest unit tests
-└── viewer/
-    ├── Dockerfile
-    ├── nginx.conf
-    ├── index.html
-    ├── js/                         # modular browser pipeline (SDF/MC/UI/HQ snapshot)
-    ├── tests/                      # vitest unit tests (jsdom + mocks)
-    └── package.json
+├── viewer/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── index.html                  # interactive Three.js marching-cubes viewer
+│   ├── js/                         # modular pipeline: sdf · mc · ui · hq-snapshot
+│   ├── tests/                      # vitest unit tests (jsdom + mocks)
+│   └── package.json
+├── evolver/
+│   ├── Dockerfile                  # Podman image for containerised evolution
+│   ├── evolver.py                  # GA orchestrator (Podman / CPU multiprocessing)
+│   ├── evolver_native.py           # GA orchestrator (macOS Metal / PyTorch MPS)
+│   ├── sdf_metal.py                # GPU-accelerated SDF grid sampler (MPS tensors)
+│   ├── fitness.py                  # 15 trimesh-based fitness metrics + hard gates
+│   ├── mutate.py                   # mutation, crossover, tournament selection
+│   ├── grammar_name.py             # compact name/slug encoder (Td.S.Ns4Ps2Ns1)
+│   ├── config.json                 # GA hyperparameters
+│   ├── requirements.txt            # Podman deps
+│   ├── requirements_native.txt     # native deps (adds torch)
+│   └── run_native.sh               # one-shot setup + run on macOS Metal
+├── gallery/                        # evolution output — gitignored, written at runtime
+│   ├── manifest.json               # epoch index (fitness history)
+│   └── epoch_NNNN/                 # per-epoch: GLB meshes + grammar JSON + fitness log
+├── glb-viewer/
+│   └── index.html                  # standalone GLB viewer (Three.js, no build step)
+│                                   # material presets · PBR sliders · turntable · 4K PNG export
+└── tex/
+    ├── notation.tex                # formal grammar notation (Schoenflies + step encoding)
+    └── journey.tex                 # project narrative (academic / CS / LinkedIn)
 ```
 
 ---

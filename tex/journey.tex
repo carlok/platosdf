@@ -1,0 +1,261 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{xcolor}
+
+\geometry{margin=3cm}
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue!60!black}
+
+\title{\textbf{Growing Metal Lace}\\
+  \large From a Fractal Grammar to Evolutionary Geometry\\
+  on Apple Silicon}
+\author{Carlo Perassi}
+\date{2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+We describe SierpSphere, a project that starts with a compact grammar
+for fractal signed-distance functions, adds a genetic algorithm targeting
+real-world metal 3D-printing constraints, and accelerates the inner loop
+with Apple Metal via PyTorch MPS.
+The result is an automated search over a space of printable, aesthetically
+complex fractal objects — each one expressible as a single line of symbolic
+notation — running at interactive speed on a laptop.
+\end{abstract}
+
+% ── 1 ─────────────────────────────────────────────────────────────────────────
+\section{Motivation}
+
+The Sierpi\'nski gasket has been rendered millions of times.
+What is less common is asking: \emph{what other objects live near it in the
+space of self-similar Boolean-SDF grammars?}
+And, once we can enumerate that neighbourhood, \emph{which of those objects
+could actually exist as a centimetre-scale metal artefact?}
+
+SierpSphere began as a weekend renderer and grew into an end-to-end pipeline
+spanning grammar design, real-time browser visualisation, evolutionary search,
+and GPU acceleration — all within a single repository, reproducible via Podman
+or a single shell script.
+
+% ── 2 ─────────────────────────────────────────────────────────────────────────
+\section{The Grammar}
+
+\subsection{Signed Distance Functions as a generative substrate}
+
+An SDF $f : \mathbb{R}^3 \to \mathbb{R}$ implicitly defines a surface as
+$\{x \mid f(x) = 0\}$.
+Smooth Boolean operations — smooth-union, smooth-subtract, smooth-intersect
+— compose SDFs without artifacts, and their blending parameter $k$ controls
+whether the join is sharp or organic.
+
+Polyhedral symmetry groups ($T_d$, $O_h$, $I_h$) provide a natural set of
+axes along which to place child primitives.
+At each iteration step the grammar places scaled copies of a primitive
+(sphere, cube, or octahedron) along those axes and combines them with
+the accumulated SDF via one of the three Boolean operations.
+
+\subsection{A compact notation}
+
+A grammar is a symmetry group, a seed primitive, and an ordered list of steps.
+The full state needed to reconstruct any evolved object fits on one line:
+
+\[
+  \Gamma = \mathsf{G}[\mathrm{P_0}] : s_1 \cdot s_2 \cdots s_n
+\]
+
+For example, the classic Sierpi\'nski sphere is
+$\mathsf{T_d}[\mathrm{S}]:\ominus_s^{0.5}{}_{0.02}\cdot\oplus_s^{0.5}{}_{0.01}\cdot\ominus_s^{0.5}{}_{0.005}$.
+A POSIX-safe filename slug encoding (replacing special characters with
+letters) makes this notation directly usable in gallery filenames:
+\texttt{Td.S.Ns4Ps2Ns1}.
+
+% ── 3 ─────────────────────────────────────────────────────────────────────────
+\section{The Fitness Landscape}
+
+\subsection{Beauty as a measurable quantity}
+
+We approximate visual complexity with four metrics computed on the extracted
+trimesh:
+
+\begin{itemize}
+  \item \textbf{Fractal dimension} — box-counting on mesh vertices, rewarded
+        when the slope $d_f \in [2.3, 2.7]$ (Gaussian centred at 2.5).
+  \item \textbf{Curvature variance} — discrete mean curvature measure;
+        high variance implies rich surface detail.
+  \item \textbf{Genus} — topological handles; a high-genus mesh has many
+        through-holes, a characteristic of Sierpi\'nski-like lace.
+  \item \textbf{Normalised surface-to-volume ratio} — rewards forms that
+        fill space efficiently without being solid blobs.
+\end{itemize}
+
+\subsection{Manufacturability as a hard constraint}
+
+Direct Metal Laser Sintering (DMLS) and Selective Laser Melting (SLM)
+impose strict geometric requirements.
+Three hard gates eliminate any candidate that fails them outright:
+
+\begin{enumerate}
+  \item \textbf{No islands} — the mesh must be a single connected component.
+  \item \textbf{No enclosed voids} — sealed internal cavities trap metal
+        powder and cannot be removed post-print.
+  \item \textbf{Minimum wall thickness $\geq 0.3\,\mathrm{mm}$} — estimated
+        via ray-casting on the surface at the target scale of $80\,\mathrm{mm}$.
+\end{enumerate}
+
+Soft manufacturing metrics — overhang fraction (support volume ratio),
+thermal mass uniformity across octants, drain openings — contribute to the
+weighted fitness score $f \in [0,1]$.
+
+\subsection{The full fitness function}
+
+Fifteen sub-scores are combined as a weighted sum.
+Aesthetic metrics account for 53\% of the total weight;
+manufacturing metrics for 47\%.
+The two groups are deliberately balanced: an object that is beautiful but
+unprintable scores zero, and a printable object that is visually trivial
+scores poorly.
+
+% ── 4 ─────────────────────────────────────────────────────────────────────────
+\section{The Genetic Algorithm}
+
+A population of $N=24$ grammars evolves over 50 epochs.
+Each epoch:
+
+\begin{enumerate}
+  \item \textbf{Evaluate} — extract the mesh via marching cubes at resolution
+        $28^3$ and compute the fitness.
+  \item \textbf{Select} — tournament selection ($k=4$) with elitism (top 3
+        carried unchanged).
+  \item \textbf{Reproduce} — single-point crossover on the iteration-step
+        list (50\% probability) followed by per-field Gaussian mutation
+        (rate 0.25 per step).
+\end{enumerate}
+
+Mutation operators act on numeric parameters (scale, distance, smoothness)
+with multiplicative Gaussian jitter, and on categorical fields
+(operation type, primitive) with discrete swap.
+Steps can also be added or removed, allowing the grammar length to evolve.
+
+% ── 5 ─────────────────────────────────────────────────────────────────────────
+\section{Metal Acceleration}
+
+\subsection{The bottleneck}
+
+An SDF grammar with $n$ operations evaluated on a $40^3$ grid requires
+$40^3 \times n \approx 10^6$ floating-point evaluations per individual.
+With a population of 24 and two CPU workers (inside a Podman Linux VM on
+macOS), epoch time reached 2 hours — too slow for iterative experimentation.
+
+\subsection{PyTorch MPS}
+
+Apple Silicon exposes a unified memory GPU via Metal Performance Shaders.
+PyTorch's MPS backend maps tensor operations onto Metal compute kernels
+transparently.
+
+The SDF evaluation is inherently data-parallel: for a grid of $N^3$ points,
+every point is independent.
+We reshape the $N^3$ grid into a flat $(N^3, 3)$ tensor and evaluate all
+primitives and Boolean operations as batched tensor arithmetic — no Python
+loop over voxels.
+
+\begin{verbatim}
+pts = torch.stack([gx, gy, gz], dim=1)   # (N³, 3) on MPS
+sdf = sd_sphere(pts, center, r)
+for op in grammar_ops:
+    child = sd_primitive(pts, op)
+    sdf   = smooth_subtract(sdf, child, k)
+grid = sdf.reshape(N, N, N).cpu().numpy()
+\end{verbatim}
+
+The marching cubes step (scikit-image, CPU) and trimesh fitness metrics
+remain on the CPU; only the SDF sampling moves to the GPU.
+This is sufficient because SDF sampling dominates the per-individual cost.
+
+\subsection{Observed speedup}
+
+On an Apple M-series chip with MPS, the per-individual evaluation time
+at resolution $28^3$ drops from $\sim 5\,\mathrm{min}$ (CPU, Podman VM)
+to $\sim 3\,\mathrm{s}$ (Metal, native), a speedup of roughly $100\times$.
+Epoch time for a population of 24 falls from hours to minutes.
+
+% ── 6 ─────────────────────────────────────────────────────────────────────────
+\section{System Architecture}
+
+The project is structured as five independently usable components:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Component & Technology & Purpose \\
+\midrule
+\texttt{engine/} & Python · Flask · trimesh & SDF eval · GLB export · REST API \\
+\texttt{viewer/} & Three.js · GLSL · Nginx & Real-time MC viewer · HQ PBR snapshot \\
+\texttt{evolver/} & Python · PyTorch MPS & GA · fitness · Metal eval \\
+\texttt{glb-viewer/} & Three.js (standalone) & Material preview · turntable · 4K PNG \\
+\texttt{tex/} & \LaTeX & Grammar notation · this document \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The Podman/Docker stack (\texttt{docker-compose.yml}) orchestrates the
+containerised path; \texttt{run\_native.sh} provides a one-command native
+macOS setup with automatic virtualenv creation.
+
+% ── 7 ─────────────────────────────────────────────────────────────────────────
+\section{Open Questions and Future Directions}
+
+\begin{itemize}
+  \item \textbf{Higher-resolution saves} — the winner of each epoch is
+        saved at $64^3$; a post-evolution high-res pass at $256^3$ on Metal
+        would produce print-ready geometry in seconds.
+  \item \textbf{Multi-objective Pareto front} — rather than a scalar fitness,
+        maintain a Pareto front of (beauty, printability) pairs and let the
+        user navigate the trade-off interactively.
+  \item \textbf{Grammar grammar} — the mutation operators themselves could
+        be subject to evolution (hyper-heuristics), allowing the search to
+        adapt its own exploration strategy.
+  \item \textbf{Differentiable SDF} — replacing marching cubes with a
+        differentiable renderer (e.g.\ sphere tracing with PyTorch autograd)
+        would enable gradient-based optimisation of grammar parameters,
+        potentially orders of magnitude faster than the GA for local refinement.
+  \item \textbf{Physical simulation} — coupling the fitness function to a
+        finite-element stress simulator would reward geometries that are not
+        just printable but structurally sound under load.
+\end{itemize}
+
+% ── 8 (LinkedIn version) ──────────────────────────────────────────────────────
+\section*{Short version (LinkedIn / general audience)}
+
+\textit{What happens when you let a computer invent its own fractal sculptures
+and grade them on whether they could be 3D printed in metal?}
+
+I built SierpSphere: a system where a grammar defines fractal shapes as
+sequences of sphere-carving operations, a genetic algorithm evolves thousands
+of variants, and a fitness function scores each one on visual complexity
+\emph{and} real manufacturing constraints — minimum wall thickness, no
+floating islands, no trapped powder.
+
+The twist: evaluating one shape required sampling a million points in 3D space.
+On a standard CPU that took minutes per shape, making overnight runs impractical.
+By rewriting the inner loop as a PyTorch tensor operation on Apple Metal (MPS),
+the same evaluation runs in about 3 seconds — a 100$\times$ speedup without
+touching the algorithm or the output quality.
+
+The best shapes from each generation are saved as GLB files you can open
+in any 3D viewer, and each one has a compact symbolic name (like a chemical
+formula) that fully describes how to recreate it.
+
+\medskip
+Source: \url{https://github.com/carlok/sierpsphere}
+
+\end{document}
