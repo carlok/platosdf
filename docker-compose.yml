@@ -69,17 +69,3 @@ services:
       - ./evolver/pytest.ini:/app/pytest.ini:ro
     command: ["pytest"]
 
-  evolver:
-    build:
-      context: ./evolver
-    profiles: [evolve]
-    working_dir: /app
-    volumes:
-      - ./grammar:/app/grammar:ro
-      - ./engine/sdf.py:/app/sdf.py:ro
-      - ./engine/grammar_store.py:/app/grammar_store.py:ro
-      - ./evolver/config.json:/app/config.json:ro
-      - ./gallery:/app/gallery
-    environment:
-      - GRAMMAR_DIR=/app/grammar
-    command: ["python", "evolver.py"]

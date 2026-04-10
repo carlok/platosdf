@@ -3,14 +3,14 @@
   "configurations": [
     {
       "name": "SDF Engine API",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["engine/server.py"],
+      "runtimeExecutable": "/Users/carlo/.nvm/versions/node/v22.22.0/bin/npx",
+      "runtimeArgs": ["serve", "-l", "5000", "/Users/carlo/Documents/varie/hacks/scratch/3d/sierpsphere/glb-viewer"],
       "port": 5000
     },
     {
       "name": "Viewer (static)",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8001", "--directory", "viewer"],
+      "runtimeExecutable": "/Users/carlo/.nvm/versions/node/v22.22.0/bin/npx",
+      "runtimeArgs": ["serve", "-l", "8001", "/Users/carlo/Documents/varie/hacks/scratch/3d/sierpsphere/viewer"],
       "port": 8001
     }
   ]

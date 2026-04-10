@@ -1,0 +1,22 @@
+\contentsline {section}{\numberline {1}Motivation}{3}{section.1}%
+\contentsline {section}{\numberline {2}The Grammar}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Signed Distance Functions as a generative substrate}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}A compact notation}{3}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Mesh extraction}{3}{subsection.2.3}%
+\contentsline {section}{\numberline {3}The Fitness Landscape}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Beauty as a measurable quantity}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Manufacturability as a hard constraint}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Full fitness function}{4}{subsection.3.3}%
+\contentsline {section}{\numberline {4}The Genetic Algorithm}{4}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Overview}{4}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Mutation operators}{5}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Diverse initial population}{5}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Primitive diversity reward}{5}{subsection.4.4}%
+\contentsline {section}{\numberline {5}GPU Acceleration via PyTorch MPS}{5}{section.5}%
+\contentsline {subsection}{\numberline {5.1}The bottleneck}{5}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Vectorised SDF on Metal}{6}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Observed speedup}{6}{subsection.5.3}%
+\contentsline {section}{\numberline {6}System Architecture}{6}{section.6}%
+\contentsline {section}{\numberline {7}Open Questions and Future Directions}{6}{section.7}%
+\contentsline {section}{Short version (general audience)}{7}{section.7}%
+\contentsfinish 

@@ -1,0 +1,20 @@
+\contentsline {section}{\numberline {1}Motivation}{1}{section.1}%
+\contentsline {section}{\numberline {2}Alphabet}{1}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Symmetry groups}{1}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Primitives}{2}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Boolean operations}{2}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Step Notation}{2}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Parameters}{2}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Step formula}{2}{subsection.3.2}%
+\contentsline {section}{\numberline {4}Full Grammar Formula}{2}{section.4}%
+\contentsline {section}{\numberline {5}Named Grammars}{2}{section.5}%
+\contentsline {paragraph}{\texttt {sierpinski\_classic}}{2}{paragraph*.1}%
+\contentsline {paragraph}{\texttt {sierpinski\_octahedron}}{3}{paragraph*.2}%
+\contentsline {paragraph}{\texttt {sierpinski\_cube}}{3}{paragraph*.3}%
+\contentsline {paragraph}{\texttt {sierpinski\_void}}{3}{paragraph*.4}%
+\contentsline {section}{\numberline {6}Mutation and Crossover Shorthand}{3}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Point mutation}{3}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Crossover}{3}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Fitness Annotation}{3}{section.7}%
+\contentsline {section}{\numberline {8}POSIX Filename Slugs}{3}{section.8}%
+\contentsfinish 
