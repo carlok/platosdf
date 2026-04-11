@@ -119,10 +119,16 @@ G-invariance is **structural** (enforced by grammar construction), not a fitness
 
 ## Implementation notes
 
-**Mesh cleaning** — `extract_mesh_metal` always drops sub-components with fewer than 15% of the largest component's faces. This runs at both eval and save resolution, so fitness gating and GLB export always see the same topology. Only viable individuals (fitness > 0) get a `.glb` and `_grammar.json` saved.
+**Carving-only grammar** — `OPERATIONS = ["subtract", "intersect"]`. The `add` (union) operation was removed because orbit copies placed near the seed surface protrude as peninsulas. Carving-only is also physically correct for metal printing: you begin with a solid and remove material.
 
-**Crossover step cap** — crossover is capped at 5 iterations per child (same as mutation). Without the cap, repeated crossover can produce grammars with 10–15+ steps that generate degenerate geometry.
+**Mesh cleaning** — `extract_mesh_metal` always returns the single largest connected component, at both eval and save resolution. Fitness gating and GLB export therefore always see the same topology. Only viable individuals (fitness > 0) get a `.glb` and `_grammar.json` saved.
 
-**Tetrahedral group generators** — `_generate_group` for Td requires three generators: C3([1,1,1]), C2([1,0,0]), and σ_d([1,-1,0]). Using only C3+σ_d yields S3 (order 6, unsigned permutations of axes) instead of Td (order 24). The C2 rotation introduces the sign changes needed to reach the full group.
+**Marching cubes level=0.01** — slight erosion (~0.8mm at 80mm print scale) removes necks thinner than ~1.6mm before they can appear as peninsulas in the GLB.
 
-**Resolution mismatch** — `eval_resolution` (40) < `save_resolution` (64). Thin bridges visible at 64 may appear solid at 40, causing the `no_islands` gate to pass shapes that look fragmented at save quality. The 15% face-count filter mitigates this; raising `eval_resolution` toward 64 reduces it further at the cost of slower evaluation.
+**Distance capped at 1.0** — orbit copies placed at `distance > seed_radius` graze the surface from outside, creating thin fingers via subtract/intersect. Hard cap at 1.0 everywhere (generation, mutation, jitter).
+
+**Crossover step cap** — crossover is capped at 5 iterations per child. Without the cap, repeated crossover produces grammars with 10–15+ steps and degenerate geometry.
+
+**Tetrahedral group generators** — Td requires three generators: C3([1,1,1]), C2([1,0,0]), σ_d([1,-1,0]). Using only C3+σ_d yields S3 (order 6) instead of Td (order 24).
+
+**Diversity** — pop=36, mutation_rate=0.65, fd Gaussian σ=0.22, tournament_k=3, ~12% fresh random individuals injected each epoch.

@@ -314,7 +314,9 @@ where:
 \begin{itemize}
   \item $G \in \{\Td, \Oh, \Ih\}$ is the symmetry group,
   \item $f_{\mathrm{seed}}$ is the canonical G-primitive SDF (\cref{sec:primitives}),
-  \item $b_i \in \{\mathrm{union}, \mathrm{subtract}, \mathrm{intersect}\}$ is a Boolean operation,
+  \item $b_i \in \{\mathrm{subtract}, \mathrm{intersect}\}$ is a Boolean operation
+        (union excluded: orbit copies placed near the seed surface protrude as
+        peninsulas, which are unprintable and topologically undesirable),
   \item $P_i$ is any primitive SDF (need not be G-invariant),
   \item $\phi_i = \mathrm{fd\_point}(G, u_i, v_i)$ with $(u_i, v_i) \in [0,1]^2$, $u_i+v_i\leq 1$,
   \item $k_i \geq 0$ is the smooth-blending radius.
@@ -368,6 +370,9 @@ with the length of the product chosen from $\{1, \ldots, n\}$.
 The subspace $\mathcal{G}_n$ is a union of manifolds; the continuous parameters
 $(u_i, v_i, s_i, k_i)$ form smooth submanifolds, while the discrete
 parameters $(b_i, P_i, \mathrm{seed})$ index disconnected components.
+Since $b_i \in \{\mathrm{subtract}, \mathrm{intersect}\}$, the grammar is
+\emph{carving-only}: every operation reduces the solid, ensuring the
+resulting shape is a connected subset of the seed primitive.
 
 \subsection{Representation and Operators}
 
@@ -381,10 +386,10 @@ three seed types, with $n_{\mathrm{steps}} \sim \mathrm{Uniform}(1,4)$,
 and all continuous parameters sampled uniformly in their domains.
 
 \paragraph{Mutation.}
-With rate $p_m = 0.55$, each gene mutates independently:
+With rate $p_m = 0.65$, each gene mutates independently:
 \begin{itemize}
-  \item $(u_i, v_i) \leftarrow \mathrm{clamp}((u_i + \mathcal{N}(0, 0.15),\; v_i + \mathcal{N}(0, 0.15)),\; [0,1]^2)$, then renormalise if $u_i + v_i > 1$.
-  \item $b_i$ resampled from $\{\mathrm{union, subtract, intersect}\}$ uniformly.
+  \item $(u_i, v_i) \leftarrow \mathrm{clamp}((u_i + \mathcal{N}(0, 0.22),\; v_i + \mathcal{N}(0, 0.22)),\; [0,1]^2)$, then renormalise if $u_i + v_i > 1$.
+  \item $b_i$ resampled from $\{\mathrm{subtract, intersect}\}$ uniformly.
   \item $P_i$ resampled from $\{\mathrm{tetrahedron, cube, icosahedron, sphere}\}$.
   \item $s_i, k_i$ perturbed log-normally.
   \item Seed type mutated with probability $0.15 \cdot p_m$ (changes $G$, all $\phi_i$ resampled in new $\FD$).

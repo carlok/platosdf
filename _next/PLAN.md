@@ -257,10 +257,23 @@ no upper bound. Over many epochs the count reached 15+, producing degenerate
 geometry. Fixed: both children are sliced to `MAX=5` after crossover.
 
 **Island / near-island GLBs** — marching cubes at coarse `eval_resolution` creates
-phantom bridges between nearly-disconnected regions. At save resolution these
-resolve into separate components. Fix: `extract_mesh_metal` always drops components
-with < 15% of the largest component's face count, at both eval and save resolution.
-Only zero-fitness individuals are excluded from GLB output.
+phantom bridges between nearly-disconnected regions. Fix: `extract_mesh_metal` always
+returns only the single largest component (at both eval and save resolution), ensuring
+fitness gating and GLB export are always consistent.
+
+**Peninsulas from `add` (union)** — union places 120/48/24 orbit copies of a
+primitive around the seed. Copies that only partially intersect the seed protrude
+as peninsulas. Fix: removed `add` entirely. Grammar is now carving-only:
+`OPERATIONS = ["subtract", "intersect"]`. Structurally impossible to create
+peninsulas.
+
+**Distance > 1.0 causes surface grazing** — subtract/intersect at distance > seed
+radius places orbit copies at the surface periphery, carving channels that leave
+thin fingers. Capped `distance` range to `[0.3, 1.0]` everywhere.
+
+**Marching cubes at level=0.0** — extracts geometry right at SDF zero-crossing,
+including tenuous surface contacts. Changed to `level=0.01` (~0.8mm erosion at
+80mm print scale), removing necks thinner than ~1.6mm.
 
 **`grammar_dir` vestigial** — config key and `grammar_store` import removed;
 population is loaded from `gallery/population.json` on `--resume`.
@@ -269,9 +282,15 @@ population is loaded from `gallery/population.json` on `--resume`.
 ```json
 eval_resolution: 40   (was 28 — raised to reduce phantom bridges)
 save_resolution: 64
-pop_size:        24
-mutation_rate:   0.55
+pop_size:        36   (was 24 — more genetic material, 12 per seed type)
+mutation_rate:   0.65  (was 0.55)
 crossover_rate:  0.45
+tournament_k:    3    (was 2)
 n_epochs:        50
 save_top_k:      5
+fresh_blood:     ~12% random individuals injected each epoch
+fd_sigma:        0.22  (was 0.15 — wider FD exploration)
+mc_level:        0.01  (was 0.0 — slight erosion removes thin necks)
+operations:      subtract, intersect  (add removed)
+distance_max:    1.0   (was 1.4)
 ```

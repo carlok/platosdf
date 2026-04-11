@@ -45,21 +45,21 @@ A G-grammar is a tuple (G, seed_G, [op_1, ..., op_n]) where:
   Symmetrize_G(P, φ)(x) = min_{g ∈ G} P(g⁻¹·x − scale · φ)
              — orbit sum: guarantees G-invariance of every child
 
-  boolean_op ∈ {smoothUnion, smoothSub, smoothIntersect}
-             — pointwise ops, always G-equivariant
+  boolean_op ∈ {smoothSub, smoothIntersect}
+             — carving ops only; union REMOVED (creates peninsulas when
+               orbit copies partially protrude beyond the seed surface)
 
 Grammar dict schema:
 {
   "seed": {"type": "tetrahedron|cube|icosahedron", "radius": 1.0},
   "iterations": [
     {
-      "operation":     "subtract|add|intersect",
+      "operation":     "subtract|intersect",
       "primitive":     "tetrahedron|cube|icosahedron|sphere",
       "fd_u":          float in [0,1],
       "fd_v":          float in [0,1],
       "scale_factor":  float (child radius relative to seed),
       "smooth_radius": float (k parameter for smooth booleans),
-      "apply_to":      "all|new"
     }
   ]
 }
@@ -139,14 +139,19 @@ construction; no measurement needed.
 
 ── GENETIC ALGORITHM ────────────────────────────────────────────────────────
 
-Population:   24 individuals, equal thirds across {tet, cube, ico} seeds
-Selection:    tournament k=2 (weak, preserves diversity)
+Population:   36 individuals, equal thirds across {tet, cube, ico} seeds
+Selection:    tournament k=3
 Elitism:      top-2 overall + best viable of each seed type (type elitism)
+Fresh blood:  ~12% random individuals injected each epoch (prevents convergence)
 Crossover:    seed inherited from one parent (determines G);
               operations borrowed freely from either parent;
-              if G changes, fd_u/fd_v of borrowed ops re-sampled in new FD
-Mutation:     rate=0.55; fd_u/fd_v: Gaussian σ=0.15 clamp [0,1];
-              operation type, primitive type, smooth_radius, scale_factor
+              if G changes, fd_u/fd_v of borrowed ops re-sampled in new FD;
+              capped at MAX=5 steps per child
+Mutation:     rate=0.65; fd_u/fd_v: Gaussian σ=0.22 clamp [0,1];
+              operation type, primitive type, smooth_radius, scale_factor;
+              distance range [0.3, 1.0] (capped — values >1.0 cause peninsulas)
+Mesh:         marching_cubes level=0.01 (slight erosion, removes thin necks);
+              always returns single largest component
 Diversity:    diverse_population() for fresh starts (not from saved JSON)
 Epochs:       50 default; --epochs N to override; --resume to continue
 
