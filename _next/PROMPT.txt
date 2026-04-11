@@ -1,0 +1,177 @@
+PROJECT BOOTSTRAP PROMPT — g-sdf-evolver
+=========================================
+Use this to seed a new Claude Code session for the successor project.
+
+── CONTEXT ───────────────────────────────────────────────────────────────────
+
+We are building a genetic evolver that generates 3D shapes defined by
+G-invariant Signed Distance Functions (SDFs), optimised for DMLS/SLM metal
+3D printing. The mathematical foundation is the theory of finite subgroups of
+O(3) — specifically the three irreducible cases from the Platonic solids:
+
+    Td (tetrahedral, order 24)   ↔  tetrahedron seed
+    Oh (octahedral,  order 48)   ↔  cube seed
+    Ih (icosahedral, order 120)  ↔  icosahedron seed
+
+Every shape in the population is a G-invariant SDF — meaning the SDF
+satisfies f(g·x) = f(x) for all g ∈ G. This is enforced structurally by the
+grammar, not measured post-hoc.
+
+── THE GRAMMAR (formal) ──────────────────────────────────────────────────────
+
+A G-grammar is a tuple (G, seed_G, [op_1, ..., op_n]) where:
+
+  seed_G   = SDF of the canonical G-Platonic solid (tetrahedron, cube, or icosahedron)
+             centred at origin with radius 1.0
+
+  op_i     = (boolean_op, Symmetrize_G(primitive_i, φ_i), smooth_radius_i)
+
+  φ_i      = fd_point(G, u_i, v_i)   where (u,v) ∈ [0,1]²
+             — a unit vector in the fundamental domain FD(G),
+             the irreducible spherical triangle of G
+
+  Symmetrize_G(P, φ)(x) = min_{g ∈ G} P(g⁻¹·x − scale · φ)
+             — orbit sum: guarantees G-invariance of every child
+
+  boolean_op ∈ {smoothUnion, smoothSub, smoothIntersect}
+             — pointwise ops, always G-equivariant
+
+Grammar dict schema:
+{
+  "seed": {"type": "tetrahedron|cube|icosahedron", "radius": 1.0},
+  "iterations": [
+    {
+      "operation":     "subtract|add|intersect",
+      "primitive":     "tetrahedron|cube|icosahedron|sphere",
+      "fd_u":          float in [0,1],
+      "fd_v":          float in [0,1],
+      "scale_factor":  float (child radius relative to seed),
+      "smooth_radius": float (k parameter for smooth booleans),
+      "apply_to":      "all|new"
+    }
+  ]
+}
+
+symmetry_group is NOT stored — it is derived: SEED_TO_GROUP[seed.type].
+
+── IMPLEMENTATION STACK ──────────────────────────────────────────────────────
+
+Language:       Python 3.12+
+GPU:            PyTorch MPS (Apple Silicon Metal) — primary path
+                PyTorch CUDA — secondary
+                CPU tensors — fallback
+Multiprocessing: Pool with 'spawn' context (required for MPS on macOS);
+                freeze_support(); per-process MPS warmup in initializer
+Mesh:           scikit-image marching_cubes + trimesh
+Fitness:        trimesh-based metrics (see below)
+Server:         Flask (gallery API + grammar endpoints)
+Viewer:         Three.js r165 GLB viewer + nginx
+
+── KEY IMPLEMENTATION DETAILS ────────────────────────────────────────────────
+
+GROUP_MATRICES[G]: precomputed torch tensors of shape (|G|, 3, 3)
+  Td  → 24 matrices (12 rotations + 12 improper)
+  Oh  → 48 matrices
+  Ih  → 120 matrices (use golden ratio φ=(1+√5)/2)
+
+FD_CORNERS[G]: 3 unit vectors spanning the spherical fundamental domain
+  Td: [ (1,1,1)/√3,  (1,1,0)/√2,  (1,0,0) ]
+  Oh: [ (1,1,1)/√3,  (1,1,0)/√2,  (1,0,0) ]  (smaller triangle)
+  Ih: [ (1,1,1)/√3,  (φ,1,0)/|·|, (1,0,0) ]  (smallest triangle, 1/120 sphere)
+
+fd_point(G, u, v):
+  barycentric: p = (1-u-v)*c0 + u*c1 + v*c2, then normalize
+  clamp: u+v <= 1 (valid barycentric), else reflect
+
+symmetrize_g(pts, prim_fn, center, radius, G):
+  # pts: (N, 3) tensor on MPS
+  # For each g in GROUP_MATRICES[G]:
+  #   transformed = pts @ g.T          (g acts on column vectors)
+  #   child_sdf = prim_fn(transformed, center, radius)
+  # return minimum over all |G| evaluations
+  # Fully parallelisable: stack all (|G|, N) and take min(dim=0)
+
+Primitive SDFs (Quilez, in PyTorch tensors):
+  _sd_tetrahedron: md = max(-x-y-z, x+y-z, -x+y+z, x-y+z); return (md-r)/√3
+  _sd_icosahedron: half-space intersection via 15 face-normal planes
+                   normals from golden-ratio vertices of dual dodecahedron
+  _sd_sphere:      ||p - c|| - r
+  _sd_box:         Quilez box SDF (L∞ smooth)
+
+── FITNESS METRICS ───────────────────────────────────────────────────────────
+
+Hard gates (return fitness=0 immediately):
+  no_islands          mesh must be single connected component
+  enclosed_voids      mesh must be watertight
+  min_wall_thickness  < 0.3 mm at target scale → reject
+
+Weighted scores (all ∈ [0,1], weights sum to 1.0):
+  fractal_dimension     0.16   box-counting, target slope 2.3–2.7
+  curvature_variance    0.12   discrete mean curvature std
+  normalised_S_V        0.08   surface/volume vs convex hull
+  genus                 0.05   topological complexity
+  aspect_ratio          0.03   bounding box ratio
+  min_wall_thickness    0.15   ray-cast thickness score
+  min_feature_size      0.08   proxy = wall thickness score
+  drain_openings        0.05   trivially 1.0 (guaranteed by voids gate)
+  enclosed_voids        0.03   hard gate passed → 1.0
+  no_islands            0.03   hard gate passed → 1.0
+  thermal_mass_variance 0.05   octant face-area variance
+  support_volume_ratio  0.05   overhang fraction
+  silhouette_complexity 0.05   projected area variance across 6 views
+  primitive_diversity   0.02   distinct primitive types used
+  fill_ratio            0.05   1 - volume/convex_hull_volume (less mass)
+
+Note: symmetry_preservation is REMOVED — G-invariance is guaranteed by
+construction; no measurement needed.
+
+── GENETIC ALGORITHM ────────────────────────────────────────────────────────
+
+Population:   24 individuals, equal thirds across {tet, cube, ico} seeds
+Selection:    tournament k=2 (weak, preserves diversity)
+Elitism:      top-2 overall + best viable of each seed type (type elitism)
+Crossover:    seed inherited from one parent (determines G);
+              operations borrowed freely from either parent;
+              if G changes, fd_u/fd_v of borrowed ops re-sampled in new FD
+Mutation:     rate=0.55; fd_u/fd_v: Gaussian σ=0.15 clamp [0,1];
+              operation type, primitive type, smooth_radius, scale_factor
+Diversity:    diverse_population() for fresh starts (not from saved JSON)
+Epochs:       50 default; --epochs N to override; --resume to continue
+
+── FILE STRUCTURE ────────────────────────────────────────────────────────────
+
+g-sdf-evolver/
+  evolver/
+    sdf_metal.py        GPU SDF evaluator (MPS primary)
+    fitness.py          fitness metrics
+    mutate.py           GA operators
+    grammar_name.py     compact name/slug encoding
+    evolver_native.py   main GA loop + multiprocessing
+    config.json         hyperparameters
+    run_native.sh       launcher script
+    tests/              pytest suite
+  engine/
+    server.py           Flask API (gallery + grammar endpoints)
+    sdf.py              numpy SDF evaluator (server-side mesh)
+    grammar_store.py    grammar persistence
+    tests/
+  viewer/               Three.js SDF viewer (nginx)
+  glb-viewer/           standalone GLB viewer (material presets, PBR)
+  gallery/              output: epoch_NNNN/{top_k GLBs, scores.json}
+  docker-compose.yml    engine + viewer + test profiles
+  tex/
+    foundation.tex      group theory + grammar formal spec (math-first)
+    journey.tex         project history and decisions
+
+── STRICT CONSTRAINTS ───────────────────────────────────────────────────────
+
+1. Never install Python packages outside .venv-evolver/ (native evolver)
+   or the Podman container (engine/tests).
+2. Podman is for: engine, viewer, test-py, test-js, test-evolver only.
+   The evolver runs NATIVELY via run_native.sh (MPS + multiprocessing).
+3. All random grammar generation must start fresh (not from saved JSONs)
+   to avoid population fixation.
+4. Grammar G-invariance must be structural (Symmetrize_G), not measured.
+5. WEIGHTS must always sum to 1.0 (enforced by test).
+6. Crossover must never produce a grammar where fd_u + fd_v > 1
+   (invalid barycentric) — clamp or resample.

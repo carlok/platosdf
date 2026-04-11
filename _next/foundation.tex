@@ -1,0 +1,629 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{geometry}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{titlesec}
+\usepackage{titletoc}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{listings}
+\usepackage[colorlinks=true, linkcolor=Teal, citecolor=Teal, urlcolor=Teal]{hyperref}
+\usepackage{cleveref}
+
+\geometry{margin=2.5cm}
+
+\definecolor{teal}{RGB}{0,120,120}
+\definecolor{codebg}{RGB}{248,248,248}
+
+\titleformat{\section}{\large\bfseries\color{teal}}{{\thesection}}{1em}{}[{\color{teal}\titlerule[0.4pt]}]
+\titleformat{\subsection}{\normalsize\bfseries\color{teal}}{{\thesubsection}}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+\lstset{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{teal!40},
+  keywordstyle=\color{teal}\bfseries,
+  commentstyle=\color{gray},
+  language=Python
+}
+
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{corollary}{Corollary}[section]
+\newtheorem{remark}{Remark}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Sym}{\mathrm{Sym}}
+\newcommand{\FD}{\mathrm{FD}}
+\newcommand{\Orb}{\mathrm{Orb}}
+\newcommand{\Stab}{\mathrm{Stab}}
+\newcommand{\card}[1]{\lvert #1 \rvert}
+\newcommand{\norm}[1]{\lVert #1 \rVert}
+\newcommand{\smin}{\mathbin{\tilde{\wedge}}}
+\newcommand{\smax}{\mathbin{\tilde{\vee}}}
+\newcommand{\Td}{T_d}
+\newcommand{\Oh}{O_h}
+\newcommand{\Ih}{I_h}
+
+\title{%
+  \textcolor{teal}{\rule{\linewidth}{0.8pt}}\\[0.4em]
+  \textbf{G-Invariant SDF Grammars for Generative Metal Form}\\
+  {\large Mathematical Foundation, Genetic Evolution, and Fabrication Constraints}\\[0.3em]
+  \textcolor{teal}{\rule{\linewidth}{0.8pt}}
+}
+\author{SierpSphere Project — \textit{next generation}}
+\date{}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\vspace{2em}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Finite Symmetry Groups of the Platonic Solids}
+\label{sec:groups}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{The Five Platonic Solids and Their Symmetry Groups}
+
+The five Platonic solids are the unique convex polyhedra whose faces, edges
+and vertices are all congruent regular polygons meeting at equal angles. Group
+theory classifies their symmetries as finite subgroups of the orthogonal group
+$O(3)$.
+
+\begin{definition}[Symmetry group of a solid]
+The \emph{symmetry group} $G(P)$ of a polyhedron $P$ is the group of all
+isometries of $\R^3$ (rotations and reflections) that map $P$ to itself.
+\end{definition}
+
+The five Platonic solids produce exactly three distinct symmetry groups:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lllcc}
+\toprule
+Solid & Faces & Symmetry group & Order & Dual \\
+\midrule
+Tetrahedron  & 4 triangles   & $\Td$  & 24  & self-dual \\
+Cube         & 6 squares     & $\Oh$  & 48  & octahedron \\
+Octahedron   & 8 triangles   & $\Oh$  & 48  & cube \\
+Dodecahedron & 12 pentagons  & $\Ih$  & 120 & icosahedron \\
+Icosahedron  & 20 triangles  & $\Ih$  & 120 & dodecahedron \\
+\bottomrule
+\end{tabular}
+\caption{Platonic solids, symmetry groups, and dual pairs.}
+\label{tab:platonic}
+\end{table}
+
+The \emph{dual} of a Platonic solid is obtained by replacing vertices with
+face centres, and vice versa. Duals share the same symmetry group. Therefore
+five solids yield exactly three groups: $\Td$, $\Oh$, $\Ih$.
+
+\subsection{Structure of Each Group}
+
+\paragraph{Tetrahedral group $\Td$ (order 24).}
+Contains 12 proper rotations (the chiral tetrahedral group $T$) and 12
+improper isometries (reflections and rotoreflections). Generators: a $C_3$
+rotation about a vertex axis and a $C_2$ rotation about an edge midpoint axis.
+The four $C_3$ axes correspond to the four vertices of the tetrahedron.
+
+\paragraph{Octahedral group $\Oh$ (order 48).}
+Contains 24 proper rotations (chiral octahedral group $O$) and 24 improper
+isometries. Generators: a $C_4$ rotation about a face-centre axis and a $C_3$
+rotation about a vertex axis. The three $C_4$ axes align with the coordinate
+axes $x, y, z$.
+
+\paragraph{Icosahedral group $\Ih$ (order 120).}
+Contains 60 proper rotations (chiral icosahedral group $I$) and 60 improper
+isometries. The group $I$ is isomorphic to $A_5$, the alternating group on
+five elements—the unique simple group of order 60. The six $C_5$ axes connect
+opposite vertex pairs. The golden ratio $\varphi = (1+\sqrt{5})/2$ appears
+throughout the coordinate geometry.
+
+\subsection{Fundamental Domains}
+\label{sec:fd}
+
+\begin{definition}[Fundamental domain]
+A \emph{fundamental domain} $\FD(G)$ for the action of $G$ on $S^2$ is a
+closed region $F \subset S^2$ such that:
+\begin{enumerate}
+  \item $S^2 = \bigcup_{g \in G} g \cdot F$ \quad (tiles the sphere),
+  \item $\mathrm{int}(F) \cap \mathrm{int}(g \cdot F) = \emptyset$ for all $g \neq e$ \quad (non-overlapping interiors).
+\end{enumerate}
+\end{definition}
+
+For finite subgroups of $O(3)$, the fundamental domain is a \emph{spherical
+triangle} — a region bounded by three great-circle arcs. Its area is
+$4\pi / \card{G}$:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llcl}
+\toprule
+Group & Order & FD area & Corner vectors (unit, approximate) \\
+\midrule
+$\Td$ & 24  & $\pi/6$  & $(1,1,1)/\sqrt{3}$,\; $(1,1,0)/\sqrt{2}$,\; $(1,0,0)$ \\
+$\Oh$ & 48  & $\pi/12$ & $(1,1,1)/\sqrt{3}$,\; $(1,1,0)/\sqrt{2}$,\; $(1,0,0)$ \\
+$\Ih$ & 120 & $\pi/30$ & $(1,1,1)/\sqrt{3}$,\; $(\varphi,1,0)/\sqrt{\varphi^2+1}$,\; $(1,0,0)$ \\
+\bottomrule
+\end{tabular}
+\caption{Fundamental domains on $S^2$. The $\Td$ and $\Oh$ share corner directions
+but differ in the great-circle arcs bounding them.}
+\label{tab:fd}
+\end{table}
+
+A point in $\FD(G)$ is parameterised by barycentric coordinates $(u,v)$ with
+$u,v \geq 0$, $u+v \leq 1$:
+\begin{equation}
+  \varphi(u,v) = \frac{(1-u-v)\,\mathbf{c}_0 + u\,\mathbf{c}_1 + v\,\mathbf{c}_2}
+                      {\norm{(1-u-v)\,\mathbf{c}_0 + u\,\mathbf{c}_1 + v\,\mathbf{c}_2}}
+  \label{eq:fdpoint}
+\end{equation}
+where $\mathbf{c}_0, \mathbf{c}_1, \mathbf{c}_2$ are the three corner unit vectors of
+$\FD(G)$ from \cref{tab:fd}.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{G-Invariant Signed Distance Functions}
+\label{sec:sdf}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Signed Distance Functions}
+
+\begin{definition}[SDF]
+A \emph{signed distance function} is a map $f: \R^3 \to \R$ such that
+$f(\mathbf{x}) = 0$ defines an implicit surface $\Sigma$, $f(\mathbf{x}) < 0$
+for interior points, and $f(\mathbf{x}) > 0$ for exterior points.
+Optionally, $\norm{\nabla f} = 1$ (Eikonal condition) makes $|f|$ the
+Euclidean distance to $\Sigma$.
+\end{definition}
+
+\begin{definition}[G-invariant SDF]
+An SDF $f$ is \emph{G-invariant} (or \emph{G-equivariant under the trivial
+representation}) if
+\begin{equation}
+  f(g \cdot \mathbf{x}) = f(\mathbf{x}) \quad \forall\, g \in G,\; \mathbf{x} \in \R^3.
+  \label{eq:invariant}
+\end{equation}
+The zero set of a G-invariant SDF is a G-symmetric surface.
+\end{definition}
+
+\subsection{Canonical G-Primitive SDFs}
+\label{sec:primitives}
+
+For each group $G$, the canonical primitive is the SDF of the associated
+Platonic solid. These are the \emph{unique} SDFs that are G-invariant and
+have exactly G as their symmetry group (no more, no less).
+
+\paragraph{Tetrahedron SDF ($\Td$-invariant).}
+Following Quilez~\cite{quilez_sdf}, a regular tetrahedron of inradius $r$:
+\begin{equation}
+  f_{\mathrm{tet}}(\mathbf{x}) = \frac{1}{\sqrt{3}}\Bigl(
+    \max\bigl(-x{-}y{-}z,\; x{+}y{-}z,\; {-}x{+}y{+}z,\; x{-}y{+}z\bigr) - r
+  \Bigr)
+  \label{eq:tet}
+\end{equation}
+
+\paragraph{Cube SDF ($\Oh$-invariant).}
+\begin{equation}
+  f_{\mathrm{box}}(\mathbf{x}) = \norm{\max(\lvert\mathbf{x}\rvert - \mathbf{h},\, \mathbf{0})}_2
+  + \min\bigl(\max(|\mathbf{x}| - \mathbf{h}),\, 0\bigr)
+  \label{eq:box}
+\end{equation}
+where $\mathbf{h} = (r, r, r)$ for a cube of half-extent $r$.
+
+\paragraph{Icosahedron SDF ($\Ih$-invariant).}
+Let $\varphi = (1+\sqrt{5})/2$. The icosahedron is the intersection of five
+``cube-like'' half-space families. The face normals of its dual (the
+dodecahedron) are:
+\begin{equation}
+  \mathbf{n}_1 = \tfrac{1}{\sqrt{\varphi^2+1}}(\varphi, 1, 0), \quad
+  \mathbf{n}_2 = \tfrac{1}{\sqrt{\varphi^2+1}}(0, \varphi, 1), \quad
+  \mathbf{n}_3 = \tfrac{1}{\sqrt{\varphi^2+1}}(1, 0, \varphi)
+\end{equation}
+and all sign permutations under $\Ih$. The SDF is:
+\begin{equation}
+  f_{\mathrm{ico}}(\mathbf{x}) = \max_{i}\bigl(\lvert \mathbf{n}_i \cdot \mathbf{x} \rvert\bigr)
+  \cdot \frac{\sqrt{\varphi^2+1}}{\varphi} - r
+  \label{eq:ico}
+\end{equation}
+
+\subsection{The Orbit Symmetrisation Operator}
+\label{sec:symmetrize}
+
+To add a child primitive at position $\boldsymbol{\phi} \in \FD(G)$ while
+preserving G-invariance, we define the \emph{orbit symmetrisation}:
+
+\begin{definition}[Symmetrize$_G$]
+\begin{equation}
+  \mathrm{Sym}_G(P, \boldsymbol{\phi})(\mathbf{x})
+    = \min_{g \in G}\, P(g^{-1} \cdot \mathbf{x} - \boldsymbol{\phi})
+  \label{eq:symg}
+\end{equation}
+where $P: \R^3 \to \R$ is any SDF primitive.
+\end{definition}
+
+\begin{proposition}[G-invariance of Sym$_G$]
+$\mathrm{Sym}_G(P, \boldsymbol{\phi})$ is G-invariant for any $P$ and any
+$\boldsymbol{\phi} \in \R^3$.
+\end{proposition}
+\begin{proof}
+For any $h \in G$:
+$\mathrm{Sym}_G(P, \boldsymbol{\phi})(h \cdot \mathbf{x})
+= \min_{g \in G} P(g^{-1} h \mathbf{x} - \boldsymbol{\phi})
+= \min_{g' \in G} P(g'^{-1} \mathbf{x} - \boldsymbol{\phi})
+= \mathrm{Sym}_G(P, \boldsymbol{\phi})(\mathbf{x})$,
+where we used the substitution $g' = h^{-1}g$ and the fact that left
+multiplication is a bijection on $G$. \qed
+\end{proof}
+
+The orbit of $\boldsymbol{\phi}$ under $G$ has size $\card{G}/\card{\Stab_G(\boldsymbol{\phi})}$
+by the orbit-stabiliser theorem. For a generic point in the interior of
+$\FD(G)$, the stabiliser is trivial, so the orbit has size $\card{G}$:
+24, 48, or 120 child copies respectively.
+
+\subsection{Smooth Boolean Algebra}
+
+The smooth Boolean operations of Inigo Quilez~\cite{quilez_smooth} are:
+\begin{align}
+  f \smin_k g &= \mathrm{smin}(f, g, k)
+    \coloneqq \mathrm{lerp}(g, f, h) - k\,h\,(1-h),
+    \quad h = \mathrm{clamp}\!\left(\tfrac{1}{2} + \tfrac{g-f}{2k}, 0, 1\right)
+    \label{eq:smin}\\
+  f \smax_k g &= \mathrm{smax}(f, g, k)
+    \coloneqq \mathrm{lerp}(g, f, h) + k\,h\,(1-h),
+    \quad h = \mathrm{clamp}\!\left(\tfrac{1}{2} - \tfrac{g-f}{2k}, 0, 1\right)
+    \label{eq:smax}
+\end{align}
+
+\begin{proposition}[Closure under G-invariance]
+If $f$ and $g$ are G-invariant SDFs, then $f \smin_k g$ and $f \smax_k g$
+are also G-invariant for any $k \geq 0$.
+\end{proposition}
+\begin{proof}
+Both operations are pointwise functions of $f(\mathbf{x})$ and $g(\mathbf{x})$.
+Since G-invariance is preserved by pointwise composition, the result follows
+immediately. \qed
+\end{proof}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{The G-Grammar}
+\label{sec:grammar}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Formal Definition}
+
+\begin{definition}[G-Grammar]
+A \emph{G-grammar} is a tuple
+\[
+  \Gamma = \bigl(G,\; f_{\mathrm{seed}},\; [(b_1, P_1, \phi_1, k_1), \ldots, (b_n, P_n, \phi_n, k_n)]\bigr)
+\]
+where:
+\begin{itemize}
+  \item $G \in \{\Td, \Oh, \Ih\}$ is the symmetry group,
+  \item $f_{\mathrm{seed}}$ is the canonical G-primitive SDF (\cref{sec:primitives}),
+  \item $b_i \in \{\mathrm{union}, \mathrm{subtract}, \mathrm{intersect}\}$ is a Boolean operation,
+  \item $P_i$ is any primitive SDF (need not be G-invariant),
+  \item $\phi_i = \mathrm{fd\_point}(G, u_i, v_i)$ with $(u_i, v_i) \in [0,1]^2$, $u_i+v_i\leq 1$,
+  \item $k_i \geq 0$ is the smooth-blending radius.
+\end{itemize}
+\end{definition}
+
+\subsection{Evaluation}
+
+The SDF of $\Gamma$ is defined inductively:
+\begin{align}
+  f_0 &= f_{\mathrm{seed}} \\
+  f_i &= f_{i-1} \;\Box_{b_i, k_i}\; \mathrm{Sym}_G(P_i, s_i \cdot \phi_i)
+  \label{eq:eval}
+\end{align}
+where $s_i > 0$ is a scale factor placing the orbit at radius $s_i$ from the
+origin, and $\Box_{b,k}$ denotes the appropriate smooth Boolean from
+\cref{eq:smin}--\cref{eq:smax}.
+
+\begin{corollary}[Closure]
+$f_n$ is G-invariant for any choice of $(b_i, P_i, \phi_i, k_i, s_i)$.
+\end{corollary}
+This follows by induction from \cref{eq:invariant}, \cref{eq:symg}, and the
+closure proposition above.
+
+\subsection{Bijection: Seed $\leftrightarrow$ Group}
+
+The assignment $G(\mathrm{seed})$ is a bijection:
+\begin{equation}
+  \mathrm{tetrahedron} \leftrightarrow \Td, \quad
+  \mathrm{cube} \leftrightarrow \Oh, \quad
+  \mathrm{icosahedron} \leftrightarrow \Ih.
+\end{equation}
+This means the symmetry group is \emph{not} a free parameter — it is
+determined by the seed choice. This eliminates a class of incoherent grammars
+(e.g.\ an octahedral seed declared with icosahedral symmetry).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Genetic Algorithm on Grammar Space}
+\label{sec:ga}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Search Space}
+
+The space of G-grammars with at most $n$ iterations is:
+\begin{equation}
+  \mathcal{G}_n = \{(\Td, \Oh, \Ih)\} \times \prod_{i=1}^{n}
+    \bigl(\{b\} \times \{P\} \times [0,1]^2 \times \R_{>0} \times \R_{\geq 0}\bigr)^*
+\end{equation}
+with the length of the product chosen from $\{1, \ldots, n\}$.
+
+The subspace $\mathcal{G}_n$ is a union of manifolds; the continuous parameters
+$(u_i, v_i, s_i, k_i)$ form smooth submanifolds, while the discrete
+parameters $(b_i, P_i, \mathrm{seed})$ index disconnected components.
+
+\subsection{Representation and Operators}
+
+\paragraph{Representation.}
+Each individual is a JSON-serialisable dict (the G-grammar as defined above),
+making the population trivially persistent and readable.
+
+\paragraph{Initialisation.}
+$\mathrm{diverse\_population}(N)$ seeds $N/3$ individuals from each of the
+three seed types, with $n_{\mathrm{steps}} \sim \mathrm{Uniform}(1,4)$,
+and all continuous parameters sampled uniformly in their domains.
+
+\paragraph{Mutation.}
+With rate $p_m = 0.55$, each gene mutates independently:
+\begin{itemize}
+  \item $(u_i, v_i) \leftarrow \mathrm{clamp}((u_i + \mathcal{N}(0, 0.15),\; v_i + \mathcal{N}(0, 0.15)),\; [0,1]^2)$, then renormalise if $u_i + v_i > 1$.
+  \item $b_i$ resampled from $\{\mathrm{union, subtract, intersect}\}$ uniformly.
+  \item $P_i$ resampled from $\{\mathrm{tetrahedron, cube, icosahedron, sphere}\}$.
+  \item $s_i, k_i$ perturbed log-normally.
+  \item Seed type mutated with probability $0.15 \cdot p_m$ (changes $G$, all $\phi_i$ resampled in new $\FD$).
+\end{itemize}
+
+\paragraph{Crossover (relaxed).}
+Given parents $\Gamma_A, \Gamma_B$:
+\begin{enumerate}
+  \item Child $C_A$ inherits seed from $\Gamma_A$ (determines $G_A$); child $C_B$ from $\Gamma_B$.
+  \item Operations are drawn freely from either parent's operation list (uniform random index selection).
+  \item If an operation borrowed from $\Gamma_B$ carries $(u_i, v_i)$ and $G_A \neq G_B$, the coordinates are resampled uniformly in $\FD(G_A)$ (the FD topology differs; the old coordinates may not map coherently).
+\end{enumerate}
+This is \emph{group-coherent crossover}: every child has a valid G-grammar
+with respect to its inherited group, while benefiting from structural
+variation borrowed across groups.
+
+\paragraph{Selection.}
+Tournament selection with $k=2$. Low $k$ preserves diversity; type-aware
+elitism guarantees no seed type goes extinct:
+\begin{itemize}
+  \item Top-2 individuals (global elitism),
+  \item Best viable individual of each seed type (type elitism).
+\end{itemize}
+
+\subsection{Convergence and Diversity}
+
+The combination of weak selection ($k=2$), high mutation ($p_m = 0.55$), type
+elitism, and diverse initialisation maintains exploration across the three
+disconnected subspaces $\mathcal{G}_{\Td}, \mathcal{G}_{\Oh}, \mathcal{G}_{\Ih}$.
+
+Within each subspace, the continuous parameters $(u,v,s,k)$ form a smooth
+manifold on which the fitness landscape is differentiable almost everywhere
+(smooth Booleans are $C^\infty$ except at $k=0$). This makes the landscape
+amenable to both gradient-free (GA) and potentially gradient-based (CMA-ES)
+optimisation.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Fitness Landscape for Metal Additive Manufacturing}
+\label{sec:fitness}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Hard Constraints (Manufacturing Gates)}
+
+Three constraints are evaluated as hard gates — violation immediately returns
+fitness $= 0$, regardless of aesthetic metrics:
+
+\begin{enumerate}
+  \item \textbf{Connectivity}: the mesh must be a single connected component (no floating islands, which cannot be printed as a single part).
+  \item \textbf{Watertightness}: the mesh must have no boundary edges (open surfaces trap powder in DMLS).
+  \item \textbf{Minimum wall thickness}: $t_{\min} \geq 0.3\,\mathrm{mm}$ at target scale $80\,\mathrm{mm}$. This is the resolution limit of standard DMLS systems with $30\,\mu\mathrm{m}$ laser spot.
+\end{enumerate}
+
+\subsection{Fitness Metrics}
+
+All soft metrics $s_i \in [0,1]$. The fitness is:
+\begin{equation}
+  F(\Gamma) = \sum_{i} w_i \, s_i(\Gamma), \quad \sum_i w_i = 1.
+  \label{eq:fitness}
+\end{equation}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llp{7cm}}
+\toprule
+Metric & Weight & Description \\
+\midrule
+fractal\_dimension     & 0.16 & Box-counting dimension of mesh vertices; Gaussian reward centred at 2.5 \\
+curvature\_variance    & 0.12 & Std of discrete mean curvature; rewards complex, varied surface \\
+normalised\_S/V        & 0.08 & Surface-to-volume ratio normalised by convex hull; rewards surface complexity \\
+min\_wall\_thickness   & 0.15 & Score derived from ray-cast minimum thickness \\
+min\_feature\_size     & 0.08 & Proxy: same as wall thickness \\
+fill\_ratio            & 0.05 & $1 - V_{\mathrm{mesh}}/V_{\mathrm{hull}}$; rewards hollowness/carving \\
+genus                  & 0.05 & Topological holes; $g = 1 - \chi/2$; rewards handles \\
+aspect\_ratio          & 0.03 & Penalises elongated forms ($> 10:1$) \\
+drain\_openings        & 0.05 & Guaranteed by watertight gate; always 1.0 \\
+enclosed\_voids        & 0.03 & Guaranteed by gate; always 1.0 \\
+no\_islands            & 0.03 & Guaranteed by gate; always 1.0 \\
+thermal\_mass\_variance& 0.05 & Octant face-area variance; rewards uniform mass distribution \\
+support\_volume\_ratio & 0.05 & Overhang fraction; penalises print supports \\
+silhouette\_complexity & 0.05 & Projected area variance across 6 orthogonal views \\
+primitive\_diversity   & 0.02 & Distinct primitive types in the grammar \\
+\midrule
+\textbf{Total}         & \textbf{1.00} & \\
+\bottomrule
+\end{tabular}
+\caption{Fitness metric weights. \texttt{symmetry\_preservation} is absent:
+G-invariance is structural (see \cref{sec:grammar}), not measured.}
+\label{tab:weights}
+\end{table}
+
+\subsection{The Fill Ratio Metric}
+
+\begin{definition}[Fill ratio]
+\[
+  s_{\mathrm{fill}}(\Gamma) = 1 - \frac{V_{\mathrm{mesh}}}{V_{\mathrm{hull}} + \varepsilon}
+\]
+where $V_{\mathrm{mesh}}$ is the mesh volume and $V_{\mathrm{hull}}$ is its
+convex hull volume.
+\end{definition}
+
+A solid blob scores 0 (volume $\approx$ hull); a maximally hollowed lattice
+scores approaching 1. This reward is consistent with the manufacturing
+objective of minimising material cost and residual thermal stress in DMLS,
+while the hard gate on minimum wall thickness prevents degenerate ultra-thin shells.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Computational Architecture}
+\label{sec:compute}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{GPU-Accelerated SDF Evaluation}
+
+The SDF grid is evaluated on Apple Silicon Metal via PyTorch MPS
+\cite{apple_mps}. For a resolution of $N^3$ voxels:
+
+\begin{enumerate}
+  \item Build the coordinate tensor $\mathbf{X} \in \R^{N^3 \times 3}$ on the MPS device.
+  \item Evaluate $f_{\mathrm{seed}}(\mathbf{X})$ as a single batched operation.
+  \item For each operation $i$: compute $\mathrm{Sym}_G(P_i, \phi_i)(\mathbf{X})$ by stacking
+        $\card{G}$ primitive evaluations and taking the channel-wise minimum.
+  \item Apply smooth Boolean to update $f$.
+\end{enumerate}
+
+The orbit symmetrisation for $\Ih$ evaluates $120 \times N^3$ primitive SDFs.
+At $N=28$: $120 \times 21{,}952 = 2{,}634{,}240$ evaluations per step — fully
+parallelised in a single MPS kernel dispatch. Memory cost: $\approx 10\,\mathrm{MB}$
+per individual at float32, negligible on 16+ GB unified memory.
+
+\subsection{Parallel Population Evaluation}
+
+Population evaluation uses Python \texttt{multiprocessing} with the
+\texttt{spawn} start method (required on macOS to avoid fork-MPS conflicts).
+With $C$ CPU cores and population size $P$, $\min(P, C)$ workers are spawned,
+each initialising its own MPS context. Wall time per epoch scales as
+$\lceil P / C \rceil \times t_{\mathrm{individual}}$.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Metal Additive Manufacturing Constraints}
+\label{sec:print}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Direct Metal Laser Sintering (DMLS) and SLM}
+
+DMLS and Selective Laser Melting (SLM) build parts layer by layer by fusing
+metal powder with a laser. Relevant constraints for generative design:
+
+\begin{description}
+  \item[Layer thickness] Typically $20$--$60\,\mu\mathrm{m}$. Surfaces
+    angled below $\approx 45°$ from horizontal require support structures.
+  \item[Minimum feature] Limited by laser spot diameter ($\approx 30$--$100\,\mu\mathrm{m}$) and thermal diffusion. We gate on $0.3\,\mathrm{mm}$.
+  \item[Enclosed cavities] Trapped powder cannot be removed post-print; the watertightness gate prevents this structurally.
+  \item[Thermal gradients] Uneven mass distribution causes residual stress and warping; the thermal mass variance metric rewards octant uniformity.
+  \item[Support removal] G-symmetric overhangs distribute support attachment points evenly, simplifying post-processing.
+\end{description}
+
+\subsection{Why G-Symmetric Designs Excel at DMLS}
+
+A G-invariant shape distributes all features symmetrically under the group
+action. For $\Ih$ (order 120), this means:
+\begin{itemize}
+  \item Thermal load during sintering is distributed equally across 120
+    equivalent facets — minimal warping.
+  \item Support structures (if needed) attach at 120 equivalent points,
+    distributing stress.
+  \item Post-print measurements at any one canonical point characterise all
+    equivalent points — simplified QC.
+\end{itemize}
+These are \emph{consequences} of group-invariance, not additional engineering
+constraints. The grammar is thus not merely an aesthetic choice but a
+manufacturing-aware design principle.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{thebibliography}{99}
+
+\bibitem{coxeter}
+H.~S.~M.\ Coxeter,
+\textit{Regular Polytopes}, 3rd ed.
+Dover Publications, 1973.
+
+\bibitem{quilez_sdf}
+I.~Quilez,
+``Modelling with Distance Functions'',
+\textit{iquilezles.org}, 2008--2024.
+\url{https://iquilezles.org/articles/distfunctions/}
+
+\bibitem{quilez_smooth}
+I.~Quilez,
+``Smooth Minimum'',
+\textit{iquilezles.org}, 2013.
+\url{https://iquilezles.org/articles/smin/}
+
+\bibitem{lorensen}
+W.~E.\ Lorensen and H.~E.\ Cline,
+``Marching Cubes: A High Resolution 3D Surface Construction Algorithm'',
+\textit{ACM SIGGRAPH Computer Graphics}, 21(4):163--169, 1987.
+
+\bibitem{holland}
+J.~H.\ Holland,
+\textit{Adaptation in Natural and Artificial Systems}.
+University of Michigan Press, 1975.
+
+\bibitem{deb}
+K.~Deb, A.~Pratap, S.~Agarwal, and T.~Meyarivan,
+``A Fast and Elitist Multiobjective Genetic Algorithm: NSGA-II'',
+\textit{IEEE Transactions on Evolutionary Computation}, 6(2):182--197, 2002.
+
+\bibitem{pytorch}
+A.~Paszke et~al.,
+``PyTorch: An Imperative Style, High-Performance Deep Learning Library'',
+\textit{NeurIPS}, 2019.
+\url{https://pytorch.org}
+
+\bibitem{apple_mps}
+Apple Inc.,
+``Metal Performance Shaders'', 2024.
+\url{https://developer.apple.com/metal/}
+
+\bibitem{sethian}
+J.~A.\ Sethian,
+\textit{Level Set Methods and Fast Marching Methods}.
+Cambridge University Press, 1999.
+
+\bibitem{wang_dmls}
+D.\ Wang et~al.,
+``Research on the Fabricating Quality Optimisation of the Overhanging
+Surface in Metal Laser Melting'',
+\textit{Applied Surface Science}, 285:534--543, 2013.
+
+\bibitem{deepsdf}
+J.~J.\ Park, P.~Florence, J.~Straub, R.~Newcombe, and S.~Lovegrove,
+``DeepSDF: Learning Continuous Signed Distance Functions for Shape
+Representation'',
+\textit{CVPR}, 2019.
+
+\bibitem{a5simple}
+M.~A.\ Armstrong,
+\textit{Groups and Symmetry}.
+Springer, 1988.
+
+\end{thebibliography}
+
+\end{document}
