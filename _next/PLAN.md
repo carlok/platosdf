@@ -239,3 +239,39 @@ bash evolver/run_native.sh --epochs 2 --workers 4
 # Expect: no symmetry_preservation in fitness output
 # Expect: shapes with visible G-orbit replication in epoch_0001/
 ```
+
+---
+
+## Status: complete (2026-04-11)
+
+All 8 steps implemented and smoke-tested. 105 pytest tests passing.
+
+### Post-implementation fixes
+
+**Td group generators wrong** — `[C3([1,1,1]), σ_d([1,-1,0])]` only generates S3
+(order 6, unsigned axis permutations). Fixed by adding `C2([1,0,0])` as a third
+generator; this introduces the sign changes required to reach Td (order 24).
+
+**Crossover step-count explosion** — crossover concatenated parent step lists with
+no upper bound. Over many epochs the count reached 15+, producing degenerate
+geometry. Fixed: both children are sliced to `MAX=5` after crossover.
+
+**Island / near-island GLBs** — marching cubes at coarse `eval_resolution` creates
+phantom bridges between nearly-disconnected regions. At save resolution these
+resolve into separate components. Fix: `extract_mesh_metal` always drops components
+with < 15% of the largest component's face count, at both eval and save resolution.
+Only zero-fitness individuals are excluded from GLB output.
+
+**`grammar_dir` vestigial** — config key and `grammar_store` import removed;
+population is loaded from `gallery/population.json` on `--resume`.
+
+### Config (current)
+```json
+eval_resolution: 40   (was 28 — raised to reduce phantom bridges)
+save_resolution: 64
+pop_size:        24
+mutation_rate:   0.55
+crossover_rate:  0.45
+n_epochs:        50
+save_top_k:      5
+```

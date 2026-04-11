@@ -114,3 +114,15 @@ A grammar is a JSON dict:
 Key weights: `min_wall_thickness` 0.15 · `fractal_dimension` 0.16 · `curvature_variance` 0.12 · `normalised_S_V` 0.08.
 
 G-invariance is **structural** (enforced by grammar construction), not a fitness metric.
+
+---
+
+## Implementation notes
+
+**Mesh cleaning** — `extract_mesh_metal` always drops sub-components with fewer than 15% of the largest component's faces. This runs at both eval and save resolution, so fitness gating and GLB export always see the same topology. Only viable individuals (fitness > 0) get a `.glb` and `_grammar.json` saved.
+
+**Crossover step cap** — crossover is capped at 5 iterations per child (same as mutation). Without the cap, repeated crossover can produce grammars with 10–15+ steps that generate degenerate geometry.
+
+**Tetrahedral group generators** — `_generate_group` for Td requires three generators: C3([1,1,1]), C2([1,0,0]), and σ_d([1,-1,0]). Using only C3+σ_d yields S3 (order 6, unsigned permutations of axes) instead of Td (order 24). The C2 rotation introduces the sign changes needed to reach the full group.
+
+**Resolution mismatch** — `eval_resolution` (40) < `save_resolution` (64). Thin bridges visible at 64 may appear solid at 40, causing the `no_islands` gate to pass shapes that look fragmented at save quality. The 15% face-count filter mitigates this; raising `eval_resolution` toward 64 reduces it further at the cost of slower evaluation.
