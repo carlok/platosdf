@@ -2,6 +2,18 @@ PROJECT BOOTSTRAP PROMPT — g-sdf-evolver
 =========================================
 Use this to seed a new Claude Code session for the successor project.
 
+BEFORE STARTING: read the two companion files in this same _next/ folder:
+  - SALVAGE.txt   which files/functions to copy from the predecessor repo
+                  (sierpsphere at carlok/sierpsphere on GitHub) and which
+                  to discard or rewrite
+  - foundation.tex  the formal mathematical specification (group theory,
+                  G-grammar, fitness, GA operators) — the authoritative
+                  reference for any implementation decision
+
+The predecessor repo lives at:
+  /Users/carlo/Documents/varie/hacks/scratch/3d/sierpsphere/
+  github.com/carlok/sierpsphere
+
 ── CONTEXT ───────────────────────────────────────────────────────────────────
 
 We are building a genetic evolver that generates 3D shapes defined by
