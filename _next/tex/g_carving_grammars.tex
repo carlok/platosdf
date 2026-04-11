@@ -1,0 +1,455 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{example}[theorem]{Example}
+
+\DeclareMathOperator{\Sym}{Sym}
+\DeclareMathOperator{\Stab}{Stab}
+\DeclareMathOperator{\Orb}{Orb}
+\DeclareMathOperator{\vol}{vol}
+\DeclareMathOperator{\sdf}{sdf}
+
+\title{$G$-Carving Grammars:\\
+Monotone Descent and a Finite Classification of\\
+Closed Paths in the Lattice of $G$-Invariant SDFs}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Let $G$ be a finite subgroup of $O(3)$ and let $\mathcal{L}_G$ denote the
+lattice of $G$-invariant signed distance functions on $\mathbb{R}^3$ under
+pointwise $\min$ and $\max$. We study finite sequences of carving operations
+$(\text{subtract}, \text{intersect})$ applied to a canonical $G$-invariant
+seed, with each operation using a symmetrised child primitive placed in the
+fundamental domain $\mathrm{FD}(G)$. We prove four small structural results:
+(i) every carving grammar defines a monotone descending chain of solids;
+(ii) the orbit-size function on $\mathrm{FD}(G)$ is upper semicontinuous and
+stratifies the domain by stabilizer rank; (iii) the space of $n$-step
+``resonant'' grammars, obtained by restricting $(\varphi, r)$ to
+stabilised strata and canonical radii, is finite up to continuous shape
+parameters; (iv) every such chain converges in the Hausdorff metric to a
+$G$-invariant closed limit. These statements formalise the notion that a
+carving grammar is a closed path from seed to result inside $\mathcal{L}_G$,
+and they give a combinatorial classification of resonant grammars that
+matches the discrete vocabulary used in the companion evolver.
+\end{abstract}
+
+\section{Setup and notation}
+\label{sec:setup}
+
+Let $G \subset O(3)$ be finite. For this paper we have in mind
+$G \in \{T_d, O_h, I_h\}$ of orders $24$, $48$, $120$, corresponding
+respectively to the tetrahedral, octahedral, and icosahedral symmetry
+groups, but the statements hold for any finite subgroup of $O(3)$
+acting linearly on $\mathbb{R}^3$.
+
+\begin{definition}[$G$-invariant SDF]
+A function $f : \mathbb{R}^3 \to \mathbb{R}$ is a \emph{$G$-invariant signed
+distance function} if
+\begin{enumerate}
+\item $|f(x) - f(y)| \le \|x-y\|$ (1-Lipschitz),
+\item $f(g\cdot x) = f(x)$ for every $g \in G$ and $x \in \mathbb{R}^3$.
+\end{enumerate}
+The collection of such functions is denoted $\mathcal{L}_G$. The
+associated solid is $S_f := \{x \in \mathbb{R}^3 : f(x) \le 0\}$, which
+is $G$-invariant as a set.
+\end{definition}
+
+\begin{lemma}[Lattice structure]
+\label{lem:lattice}
+The pair $(\mathcal{L}_G, \le)$, with pointwise ordering $f \le g \iff
+f(x) \le g(x)\; \forall x$, is a complete lattice under
+\[
+  (f \wedge g)(x) := \min(f(x), g(x)), \qquad
+  (f \vee g)(x) := \max(f(x), g(x)).
+\]
+Moreover $\min$ and $\max$ preserve both properties $(1)$ and $(2)$, so
+$\mathcal{L}_G$ is closed under them.
+\end{lemma}
+
+\begin{proof}
+1-Lipschitz is preserved because $\min$ and $\max$ of 1-Lipschitz functions
+are 1-Lipschitz. $G$-invariance is preserved since for any $g \in G$,
+$\min(f(gx), f'(gx)) = \min(f(x), f'(x))$. Completeness follows from the
+lattice of bounded 1-Lipschitz functions being complete under pointwise
+$\sup$ and $\inf$, and the $G$-invariant subspace being closed under
+arbitrary pointwise meets and joins.
+\end{proof}
+
+Write $S_G \subset \mathbb{R}^3$ for a compact $G$-invariant \emph{seed}
+solid, with canonical SDF $f_0 \in \mathcal{L}_G$ (e.g.\ the inscribed
+sphere, tetrahedron, cube, octahedron, dodecahedron, or icosahedron,
+each canonically positioned at the origin so that $G$ acts linearly).
+
+\subsection{Fundamental domain and orbit symmetrisation}
+
+The action of $G$ on the unit sphere $S^2$ admits a spherical
+\emph{fundamental domain} $\mathrm{FD}(G) \subset S^2$: a closed
+spherical triangle with area $4\pi/|G|$ whose $G$-translates tile $S^2$
+with overlap only on a measure-zero set (the edges of $\mathrm{FD}$,
+which lie on rotation axes). For $T_d$, $O_h$, $I_h$, $\mathrm{FD}(G)$
+is the spherical triangle with vertices at a $3$-fold axis (vertex of
+the dual polyhedron), a $2$-fold axis (edge midpoint), and a $k$-fold
+axis ($k=3,4,5$, face centre), respectively.
+
+\begin{definition}[Symmetrisation]
+For $\varphi \in \mathbb{R}^3$ and a primitive SDF $P : \mathbb{R}^3 \to
+\mathbb{R}$, define
+\[
+  \Sym_G(P, \varphi)(x) \;:=\; \min_{g \in G}\, P(g\cdot x - \varphi).
+\]
+\end{definition}
+
+\begin{proposition}[$G$-invariance of symmetrisation]
+\label{prop:ginv}
+For any primitive $P$ and any placement $\varphi$,
+$\Sym_G(P, \varphi) \in \mathcal{L}_G$ (provided $P$ is 1-Lipschitz).
+\end{proposition}
+
+\begin{proof}
+For $h \in G$,
+$\min_{g\in G} P(g\cdot hx - \varphi) = \min_{g' \in G} P(g' x - \varphi)$
+by the substitution $g' = gh$, using that $G$ is closed under right
+multiplication. 1-Lipschitz descends from $P$ through
+$x \mapsto g\cdot x$ (isometry) and pointwise minimum.
+\end{proof}
+
+\subsection{Smooth Booleans as lattice operations}
+
+Define, for $k \ge 0$,
+\[
+  \mathrm{smax}_k(a,b) := \tfrac12(a+b) + \tfrac12|a - b| + \mathrm{bump}_k(a,b),
+\]
+where $\mathrm{bump}_k \ge 0$ vanishes for $k=0$ and satisfies
+$\mathrm{bump}_k \to 0$ pointwise as $k \to 0^+$. The smooth operation
+$\mathrm{smax}_k$ is an upper bound on $\max$: $\mathrm{smax}_k(a,b) \ge
+\max(a,b)$ for all $a,b$, with equality at $k=0$. Analogously
+$\mathrm{smin}_k(a,b) \le \min(a,b)$.
+
+\begin{lemma}
+\label{lem:smax-monotone}
+$\mathrm{smax}_k(f, g)(x) \ge f(x)$ pointwise. Hence if
+$h := \mathrm{smax}_k(f, g)$, then $S_h = \{h \le 0\} \subseteq S_f$.
+Symmetrically $\mathrm{smin}_k(f, g) \le f$ and
+$S_{\mathrm{smin}_k(f,g)} \supseteq S_f$.
+\end{lemma}
+
+\begin{proof}
+Immediate from $\mathrm{smax}_k(a,b) \ge \max(a,b) \ge a$, and the
+pointwise containment of sublevel sets reverses pointwise order.
+\end{proof}
+
+\section{$G$-carving grammars}
+\label{sec:grammars}
+
+\begin{definition}[$G$-carving grammar]
+A \emph{$G$-carving grammar of length $n$} is a tuple
+\[
+  \Gamma = (f_0;\; (b_1, P_1, \varphi_1, r_1, k_1), \dots,
+           (b_n, P_n, \varphi_n, r_n, k_n)),
+\]
+where
+\begin{itemize}
+\item $f_0 \in \mathcal{L}_G$ is a canonical seed;
+\item $b_i \in \{\mathsf{subtract}, \mathsf{intersect}\}$;
+\item $P_i$ is a 1-Lipschitz primitive SDF (sphere, tetrahedron, cube,
+      icosahedron);
+\item $\varphi_i \in \mathrm{FD}(G) \subset S^2$ and $r_i > 0$ specify
+      direction and distance of the child centre;
+\item $k_i \ge 0$ is a smoothing radius.
+\end{itemize}
+The associated sequence $(f_i)_{i=0}^{n}$ is defined by
+\[
+  c_i(x) \;:=\; \Sym_G(P_i, r_i \varphi_i)(x),
+\]
+\[
+  f_i(x) \;:=\;
+  \begin{cases}
+    \mathrm{smax}_{k_i}(f_{i-1}(x),\, -c_i(x)) & \text{if } b_i = \mathsf{subtract},\\
+    \mathrm{smax}_{k_i}(f_{i-1}(x),\, c_i(x)) & \text{if } b_i = \mathsf{intersect}.
+  \end{cases}
+\]
+The associated sequence of solids is $S_i := \{f_i \le 0\}$.
+\end{definition}
+
+\begin{remark}
+Omitting $\mathsf{add}$ (smooth union) is the defining feature of a
+\emph{carving} grammar. The union operator would use
+$\mathrm{smin}_k(f_{i-1}, c_i)$ and therefore grow the solid --- it is
+structurally incompatible with the monotone descent property proved
+below.
+\end{remark}
+
+\section{Monotone descent}
+\label{sec:descent}
+
+\begin{theorem}[Monotone descent]
+\label{thm:monotone}
+Let $\Gamma$ be any $G$-carving grammar of length $n$. Then
+\[
+  S_0 \;\supseteq\; S_1 \;\supseteq\; S_2 \;\supseteq\; \cdots
+  \;\supseteq\; S_n,
+\]
+and each $S_i$ is $G$-invariant as a set.
+\end{theorem}
+
+\begin{proof}
+By Proposition~\ref{prop:ginv}, $c_i \in \mathcal{L}_G$.
+By Lemma~\ref{lem:lattice}, $\mathcal{L}_G$ is closed under pointwise
+$\max$; the smooth version $\mathrm{smax}_{k_i}$ is an over-approximation
+that still lies in $\mathcal{L}_G$ (it commutes with $G$-action because
+$f_{i-1}$ and $c_i$ are $G$-invariant). So $f_i \in \mathcal{L}_G$ for
+every $i$, and $S_i$ is $G$-invariant.
+
+For the inclusion, Lemma~\ref{lem:smax-monotone} gives $f_i \ge f_{i-1}$
+pointwise (whether $b_i$ is subtract or intersect, both branches feed
+$f_{i-1}$ as the first argument of $\mathrm{smax}_{k_i}$). Taking
+sublevel sets reverses the inequality: $S_i \subseteq S_{i-1}$.
+\end{proof}
+
+\begin{corollary}[Closed path interpretation]
+Every carving grammar defines a monotone path
+\[
+  f_0 \;\le\; f_1 \;\le\; \cdots \;\le\; f_n
+\]
+in the poset $(\mathcal{L}_G, \le)$, starting at the seed and ending at
+the result. The path stays inside $\mathcal{L}_G$ throughout, and the
+associated solid path $S_0 \supseteq \cdots \supseteq S_n$ is a
+descending chain of $G$-invariant compact sets.
+\end{corollary}
+
+\section{Stratification of $\mathrm{FD}(G)$ by orbit size}
+\label{sec:strat}
+
+\begin{definition}[Orbit size function]
+For $\varphi \in S^2$, write $\Stab_G(\varphi) := \{g \in G : g\varphi
+= \varphi\}$ and $\Orb_G(\varphi) := \{g\varphi : g \in G\}$. By the
+orbit--stabiliser theorem,
+\[
+  |\Orb_G(\varphi)| \;=\; |G| / |\Stab_G(\varphi)|.
+\]
+Let $N_G(\varphi) := |\Orb_G(\varphi)|$.
+\end{definition}
+
+\begin{theorem}[Stabiliser stratification]
+\label{thm:strat}
+The function $N_G : S^2 \to \mathbb{N}$ is upper semicontinuous. It
+takes the maximum value $|G|$ on a dense open set, and drops on a
+finite union of great-circle arcs (fixed sets of order-$2$ rotations)
+and a finite set of isolated points (fixed by order $\ge 3$ rotations).
+On $\mathrm{FD}(G)$ specifically, the stratification reads:
+\begin{itemize}
+\item Interior of $\mathrm{FD}(G)$: $N_G = |G|$.
+\item Relative interior of edges of $\mathrm{FD}(G)$: $N_G = |G|/2$.
+\item Vertices of $\mathrm{FD}(G)$: $N_G = |G|/p$ with
+      $p \in \{3, 4, 5\}$ depending on the axis order at that vertex.
+\end{itemize}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Upper semicontinuity follows from the fact that
+$\{\varphi : |\Stab_G(\varphi)| \ge s\}$ is closed for every $s$: it is
+the union of finitely many fixed sets of subgroups $H \le G$, each of
+which is a union of great circles (for $H$ generated by a single
+reflection or rotation axis) or isolated points (for $H$ containing
+multiple independent rotations). On $\mathrm{FD}(G)$, the fundamental
+spherical triangle meets each rotation-axis locus exactly on its
+boundary: edges correspond to $C_2$ axes (stabiliser order 2), and the
+three vertices correspond to the three distinguished rotation axes of
+$G$, of orders $3$, $2$, and $p$ (the highest-order axis of $G$).
+\end{proof}
+
+\begin{example}[Octahedral $O_h$, $|G|=48$]
+Generic $\varphi$: orbit size $48$; edge midpoints of $\mathrm{FD}$
+(lying on $C_2$ axes): orbit size $24$; vertices of $\mathrm{FD}$: $8$
+($C_3$ vertex axis), $12$ ($C_2$ edge axis), $6$ ($C_4$ face axis).
+\end{example}
+
+\begin{corollary}
+\label{cor:reduced-orbit}
+If $\varphi$ lies on a stratum with $|\Stab_G(\varphi)| = s$, then
+$\Sym_G(P, \varphi)(x) = \min_{g \in G/\Stab_G(\varphi)} P(g\cdot x -
+\varphi)$, a minimum over $|G|/s$ terms rather than $|G|$. The
+symmetrised child is correspondingly supported by fewer orbit copies.
+\end{corollary}
+
+\begin{remark}
+Placing carves at stabilised strata (edges and vertices of
+$\mathrm{FD}(G)$) produces visually and structurally simpler shapes ---
+fewer, larger removed features instead of many small ones. This is
+exactly the difference between the ``continuous'' and ``resonant''
+modes of the companion evolver.
+\end{remark}
+
+\section{Finite classification of resonant grammars}
+\label{sec:resonant}
+
+\begin{definition}[Resonant grammar]
+A carving grammar is \emph{resonant} if for every step $i$,
+\begin{itemize}
+\item $\varphi_i$ lies in the finite set
+    $C_G := V(\mathrm{FD}) \cup E_{\text{mid}}(\mathrm{FD})$
+    of vertices and edge midpoints of $\mathrm{FD}(G)$;
+\item $r_i \in R_G := \{R, \rho, \iota\}$, the circumradius,
+    midradius, and inradius of the seed solid $S_G$;
+\item $b_i \in B := \{\mathsf{subtract}, \mathsf{intersect}\}$;
+\item $P_i \in \mathcal{P}$, a fixed finite palette of primitive SDFs.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Finite classification]
+\label{thm:finite}
+Fix $n, G, S_G, \mathcal{P}$. The number of combinatorial types of
+$n$-step resonant grammars on $S_G$, where two grammars are equivalent
+iff they agree in $(b_i, P_i, \varphi_i, r_i)$ for every $i$, is at
+most
+\[
+  N_{\mathrm{res}}(n) \;\le\;
+  \bigl(|B| \cdot |\mathcal{P}| \cdot |C_G| \cdot |R_G|\bigr)^{n}.
+\]
+In particular, $N_{\mathrm{res}}(n) < \infty$ for every $n$. The
+continuous shape parameters (scale factor, smoothing radius $k_i$)
+define a bounded open subset of $\mathbb{R}^{2n}$ fibred over this
+finite set.
+\end{theorem}
+
+\begin{proof}
+Each step is a point in the Cartesian product
+$B \times \mathcal{P} \times C_G \times R_G$, which is finite. A
+length-$n$ grammar is a word of length $n$ in this alphabet, giving at
+most $(|B||\mathcal{P}||C_G||R_G|)^n$ distinct words. Continuous
+parameters $(s_i, k_i) \in [0,1]^2$ refine each word to a bounded open
+region.
+\end{proof}
+
+\begin{example}
+For the evolver's default vocabulary
+($|B|=2$, $|\mathcal{P}|=4$, $|C_G|=6$, $|R_G|=3$), and $n \le 5$, we
+have
+\[
+  N_{\mathrm{res}}(\le 5) \;=\;
+  \sum_{i=1}^{5}(2\cdot 4 \cdot 6 \cdot 3)^{i} \;=\;
+  \sum_{i=1}^{5} 144^{i} \;<\; 6.2 \times 10^{10}.
+\]
+This is finite but large. However the fitness filter (monotone descent
+plus the carving hard gates: watertight, single-component, minimum wall
+thickness) eliminates the vast majority, and --- modulo $G$-action and
+continuous rescaling --- the count of \emph{geometrically} distinct
+resonant shapes is conjecturally much smaller.
+\end{example}
+
+\section{Hausdorff convergence}
+\label{sec:conv}
+
+\begin{theorem}[Hausdorff limit]
+\label{thm:hausdorff}
+Let $\Gamma = (f_0; (b_i, P_i, \varphi_i, r_i, k_i)_{i \ge 1})$ be a
+countably infinite carving grammar on a compact seed $S_0$. Define
+$S_i$ as above. Then
+\[
+  S_\infty \;:=\; \bigcap_{i=0}^{\infty} S_i
+\]
+is a nonempty-or-empty $G$-invariant compact set, and
+$S_i \to S_\infty$ in the Hausdorff metric $d_H$ (with the convention
+$d_H(\emptyset, \emptyset) = 0$ and $d_H(A, \emptyset) = \mathrm{diam}(A)$
+if $A \ne \emptyset$).
+\end{theorem}
+
+\begin{proof}
+By Theorem~\ref{thm:monotone}, $(S_i)$ is a nested sequence of
+$G$-invariant compact sets. The intersection $S_\infty$ of a nested
+sequence of compact sets in $\mathbb{R}^3$ is compact, and is
+$G$-invariant because each $S_i$ is. Nested compact sequences converge
+to their intersection in the Hausdorff metric (standard; see e.g.
+Federer, Geometric Measure Theory, 2.10.21), which gives $S_i \to
+S_\infty$.
+\end{proof}
+
+\begin{corollary}[Finite case]
+For a finite carving grammar of length $n$, the result $S_n$ itself is
+the Hausdorff limit of the trivial tail $(S_n, S_n, \dots)$, and is
+therefore a well-defined $G$-invariant compact set.
+\end{corollary}
+
+\begin{remark}[Connection to iterated function systems]
+If one restricts the Boolean op to a single carving operator applied
+repeatedly with shrinking scale, the iterated carving defines a
+non-autonomous contractive system on the space of compact $G$-invariant
+subsets of $S_0$, and $S_\infty$ is a fixed attractor analogous to the
+Sierpi\'nski fractals of classical IFS theory. The companion codebase
+was seeded by exactly this observation (``SierpSphere''). The general
+carving grammar generalises this to heterogeneous iteration where the
+carving operator and its parameters may change at every step, and
+Theorem~\ref{thm:hausdorff} is the appropriate existence statement.
+\end{remark}
+
+\section{Discussion and open questions}
+\label{sec:open}
+
+The four theorems above are structural rather than deep: they say that
+a $G$-carving grammar is a well-defined monotone descent in
+$\mathcal{L}_G$, that resonant grammars are a finite enumerable subset,
+and that infinite carving has a limit. We list a few directions in
+which one might hope to find sharper statements.
+
+\begin{enumerate}
+\item \textbf{Geometric equivalence.} Theorem~\ref{thm:finite} counts
+  combinatorial types; the natural refinement is to count geometric
+  equivalence classes up to $G$-action and scaling. Two distinct words
+  may produce identical (or diffeomorphic, or homotopy equivalent)
+  solids. A sharper classification would use the subgroup of
+  $\mathcal{L}_G$ generated by resonant carves modulo the equivalence
+  $\{f, f'\} \sim \{S_f = S_{f'}\}$. The image in this quotient is
+  presumably still finite but its exact cardinality is open.
+
+\item \textbf{Topological invariants along the descent.} The Euler
+  characteristic $\chi(S_i)$ cannot increase arbitrarily under carving:
+  removing a symmetric orbit of genus-$0$ child balls from a
+  genus-$0$ seed produces a region whose $\chi$ drops by $|\Orb_G
+  (\varphi_i)|$ if the orbit is cleanly separated. The question of
+  whether $\chi(S_i)$ is strictly monotone, or of how the Betti
+  numbers evolve, seems tractable given the explicit structure of
+  carving grammars.
+
+\item \textbf{Fractal dimension.} For a self-similar carving grammar
+  --- one in which the same step is applied at a sequence of shrinking
+  scales --- the Hausdorff dimension of $S_\infty$ should be computable
+  via a Moran-type equation. The fitness function in the companion
+  evolver already measures a discrete approximation of
+  box-counting dimension, and its target value is empirically close
+  to $2.3$--$2.5$. A clean theoretical statement relating the
+  resonant word (in the finite alphabet of Theorem~\ref{thm:finite})
+  to the fractal dimension of the limit would be very natural.
+
+\item \textbf{Group cohomology perspective.} The assignment
+  $G \mapsto \mathcal{L}_G$ is functorial in $G$. It may be profitable
+  to ask what $H^*(G; \mathcal{L}_G)$ computes; perhaps the cohomology
+  detects carving words that are equivalent modulo $G$-coboundaries.
+  This is speculative.
+
+\item \textbf{Dynamical systems view.} The carving grammar is a
+  (heterogeneous) discrete dynamical system on $\mathcal{L}_G$ with
+  attractor $S_\infty$. Standard questions: is the map expanding in
+  the Hausdorff metric? Does it have a natural invariant measure?
+  Is there a symbolic dynamics on the finite alphabet of
+  Theorem~\ref{thm:finite} that conjugates to the geometric system?
+\end{enumerate}
+
+None of these questions are answered here. The contribution of this
+note is the clean formalism of Sections \ref{sec:grammars}--\ref{sec:conv},
+which makes them askable.
+
+\end{document}
