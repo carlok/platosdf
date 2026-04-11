@@ -20,7 +20,7 @@ PRIMITIVES = ["tetrahedron", "cube", "icosahedron"]
 # Valid child primitives (sphere included as a "smooth" child option)
 CHILD_PRIMITIVES = ["tetrahedron", "cube", "icosahedron", "sphere"]
 
-OPERATIONS = ["subtract", "add", "intersect"]
+OPERATIONS = ["subtract", "intersect"]
 
 SEED_TO_GROUP = {
     "tetrahedron": "tetrahedral",
@@ -47,7 +47,7 @@ def random_grammar_pure(
 
     steps = []
     for i in range(n_steps):
-        op = random.choice(["subtract", "intersect"]) if i == 0 else random.choice(OPERATIONS)
+        op = random.choice(OPERATIONS)
         u, v = _random_fd()
         steps.append({
             "operation":     op,
