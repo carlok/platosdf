@@ -1,292 +1,321 @@
 """
-SDF (Signed Distance Function) engine for SierpSphere grammar.
+G-invariant SDF engine for the g-sdf-evolver grammar.
 
-Evaluates a JSON grammar into a volumetric SDF, then extracts a mesh
-via marching cubes and exports GLTF.  Also serves the SDF parameters
-as JSON so the WebGL raymarcher can render in real-time.
+Numpy/CPU counterpart to evolver/sdf_metal.py. Used by:
+  - engine/server.py  (server-side mesh extraction for gallery)
+  - engine tests
+
+Mathematical foundation: _next/foundation.tex
+  §2.2 primitive SDFs, §2.3 orbit symmetrisation, §1.3 fundamental domain
 """
+from __future__ import annotations
 
 import math
+from itertools import product as iproduct
+
 import numpy as np
 
 
-# ── Symmetry vertex sets ──────────────────────────────────────────────
+# ── Primitive SDFs (numpy) ─────────────────────────────────────────────────────
 
-def tetrahedral_vertices():
-    """Four vertices of a regular tetrahedron inscribed in the unit sphere."""
-    return np.array([
-        [ 1,  1,  1],
-        [ 1, -1, -1],
-        [-1,  1, -1],
-        [-1, -1,  1],
-    ], dtype=np.float64) / math.sqrt(3)
+def sdf_sphere(pts: np.ndarray, center: np.ndarray, radius: float) -> np.ndarray:
+    return np.linalg.norm(pts - center, axis=-1) - radius
 
 
-def octahedral_vertices():
-    """Six vertices of a regular octahedron inscribed in the unit sphere."""
-    return np.array([
-        [ 1,  0,  0], [-1,  0,  0],
-        [ 0,  1,  0], [ 0, -1,  0],
-        [ 0,  0,  1], [ 0,  0, -1],
-    ], dtype=np.float64)
-
-
-def icosahedral_vertices():
-    """Twelve vertices of a regular icosahedron inscribed in the unit sphere."""
-    phi = (1 + math.sqrt(5)) / 2
-    verts = []
-    for s1 in (-1, 1):
-        for s2 in (-1, 1):
-            verts.append([0, s1, s2 * phi])
-            verts.append([s1, s2 * phi, 0])
-            verts.append([s2 * phi, 0, s1])
-    verts = np.array(verts, dtype=np.float64)
-    verts /= np.linalg.norm(verts[0])  # normalize to unit sphere
-    return verts
-
-
-SYMMETRY_GROUPS = {
-    "tetrahedral":  tetrahedral_vertices,
-    "octahedral":   octahedral_vertices,
-    "icosahedral":  icosahedral_vertices,
-}
-
-
-# ── SDF primitives ────────────────────────────────────────────────────
-
-def sdf_sphere(p, center, radius):
-    """Signed distance to a sphere."""
-    return np.linalg.norm(p - center, axis=-1) - radius
-
-
-def sdf_cube(p, center, half_extent):
-    """Signed distance to an axis-aligned box."""
-    q = np.abs(p - center) - half_extent
+def sdf_box(pts: np.ndarray, center: np.ndarray, radius: float) -> np.ndarray:
+    """Cube SDF. `radius` = half-extent."""
+    q = np.abs(pts - center) - radius
     return (np.linalg.norm(np.maximum(q, 0), axis=-1)
             + np.minimum(np.max(q, axis=-1), 0))
 
 
-def sdf_octahedron(p, center, radius):
-    """Signed distance to a regular octahedron."""
-    q = np.abs(p - center)
-    return (q[..., 0] + q[..., 1] + q[..., 2] - radius) * (1.0 / math.sqrt(3))
+def sdf_tetrahedron(pts: np.ndarray, center: np.ndarray, radius: float) -> np.ndarray:
+    """Td-invariant SDF. foundation.tex eq. 3."""
+    p = pts - center
+    x, y, z = p[..., 0], p[..., 1], p[..., 2]
+    md = np.maximum(np.maximum(-x - y - z, x + y - z),
+                    np.maximum(-x + y + z,  x - y + z))
+    return (md - radius) / math.sqrt(3.0)
 
 
-SDF_PRIMITIVES = {
-    "sphere":     sdf_sphere,
-    "cube":       sdf_cube,
-    "octahedron": sdf_octahedron,
+def sdf_icosahedron(pts: np.ndarray, center: np.ndarray, radius: float) -> np.ndarray:
+    """Ih-invariant SDF via 20 dodecahedral face normals. foundation.tex eq. 5."""
+    phi = (1.0 + math.sqrt(5.0)) / 2.0
+    s3  = math.sqrt(3.0)
+    p   = pts - center
+    d   = np.full(p.shape[:-1], -1e9)
+
+    for sx, sy, sz in iproduct((-1, 1), (-1, 1), (-1, 1)):
+        n = np.array([sx, sy, sz], dtype=np.float64) / s3
+        d = np.maximum(d, p @ n)
+
+    for i0, i1, i2 in ((0, 1, 2), (1, 2, 0), (2, 0, 1)):
+        for s1, s2 in iproduct((-1, 1), (-1, 1)):
+            raw = [0.0, s1 * phi, s2 / phi]
+            n = np.array([raw[i0], raw[i1], raw[i2]], dtype=np.float64) / s3
+            d = np.maximum(d, p @ n)
+
+    return d - radius
+
+
+SDF_PRIMITIVES: dict = {
+    "tetrahedron": sdf_tetrahedron,
+    "cube":        sdf_box,
+    "icosahedron": sdf_icosahedron,
+    "sphere":      sdf_sphere,
 }
 
+# ── Smooth Boolean ops ─────────────────────────────────────────────────────────
 
-# ── Smooth Boolean operators ─────────────────────────────────────────
-
-def smooth_union(d1, d2, k):
+def smooth_union(d1: np.ndarray, d2: np.ndarray, k: float) -> np.ndarray:
     if k <= 0:
         return np.minimum(d1, d2)
     h = np.clip(0.5 + 0.5 * (d2 - d1) / k, 0, 1)
     return d2 * (1 - h) + d1 * h - k * h * (1 - h)
 
 
-def smooth_subtraction(d1, d2, k):
-    """Subtract d1 from d2 (d2 is the 'body')."""
+def smooth_subtraction(d1: np.ndarray, d2: np.ndarray, k: float) -> np.ndarray:
     if k <= 0:
         return np.maximum(-d1, d2)
     h = np.clip(0.5 - 0.5 * (d2 + d1) / k, 0, 1)
     return d2 * (1 - h) + (-d1) * h + k * h * (1 - h)
 
 
-def smooth_intersection(d1, d2, k):
+def smooth_intersection(d1: np.ndarray, d2: np.ndarray, k: float) -> np.ndarray:
     if k <= 0:
         return np.maximum(d1, d2)
     h = np.clip(0.5 - 0.5 * (d2 - d1) / k, 0, 1)
     return d2 * (1 - h) + d1 * h + k * h * (1 - h)
 
 
-BOOLEAN_OPS = {
+BOOLEAN_OPS: dict = {
     "add":       smooth_union,
     "subtract":  smooth_subtraction,
     "intersect": smooth_intersection,
 }
 
+# ── Group matrix generation (numpy) ───────────────────────────────────────────
 
-# ── Grammar evaluation ────────────────────────────────────────────────
+def _rot_mat(axis, angle: float) -> np.ndarray:
+    ax = np.asarray(axis, float); ax /= np.linalg.norm(ax)
+    c, s = math.cos(angle), math.sin(angle); t = 1.0 - c
+    x, y, z = ax
+    return np.array([
+        [t*x*x + c,   t*x*y - s*z, t*x*z + s*y],
+        [t*x*y + s*z, t*y*y + c,   t*y*z - s*x],
+        [t*x*z - s*y, t*y*z + s*x, t*z*z + c  ],
+    ])
+
+
+def _reflect_mat(normal) -> np.ndarray:
+    n = np.asarray(normal, float); n /= np.linalg.norm(n)
+    return np.eye(3) - 2.0 * np.outer(n, n)
+
+
+def _generate_group(generators: list[np.ndarray], expected_order: int) -> np.ndarray:
+    def key(m): return tuple(np.round(m, 9).flatten())
+    group = [np.eye(3)]
+    seen  = {key(np.eye(3))}
+    queue = list(generators)
+    while queue:
+        g = queue.pop(0)
+        k = key(g)
+        if k in seen:
+            continue
+        seen.add(k); group.append(g)
+        for h in list(group):
+            for prod in (g @ h, h @ g):
+                pk = key(prod)
+                if pk not in seen:
+                    queue.append(prod)
+    if len(group) != expected_order:
+        raise RuntimeError(
+            f"Group generation: {len(group)} elements, expected {expected_order}"
+        )
+    return np.stack(group)
+
+
+_PHI = (1.0 + math.sqrt(5.0)) / 2.0
+_TAU = 2.0 * math.pi
+
+GROUP_MATRICES: dict[str, np.ndarray] = {
+    "tetrahedral": _generate_group([
+        _rot_mat([1, 1, 1], _TAU / 3),
+        _reflect_mat([1, -1, 0]),
+    ], expected_order=24),
+
+    "octahedral": _generate_group([
+        _rot_mat([0, 0, 1], _TAU / 4),
+        _rot_mat([1, 1, 1], _TAU / 3),
+        -np.eye(3),
+    ], expected_order=48),
+
+    "icosahedral": _generate_group([
+        _rot_mat(np.array([0, 1, _PHI]) / math.sqrt(1 + _PHI**2), _TAU / 5),
+        _rot_mat([1, 1, 1], _TAU / 3),
+        -np.eye(3),
+    ], expected_order=120),
+}
+
+# ── Fundamental domain ─────────────────────────────────────────────────────────
+
+_FD_CORNERS: dict[str, list[np.ndarray]] = {
+    "tetrahedral": [
+        np.array([1.0, 1.0, 1.0]) / math.sqrt(3),
+        np.array([1.0, 1.0, 0.0]) / math.sqrt(2),
+        np.array([1.0, 0.0, 0.0]),
+    ],
+    "octahedral": [
+        np.array([1.0, 1.0, 1.0]) / math.sqrt(3),
+        np.array([1.0, 1.0, 0.0]) / math.sqrt(2),
+        np.array([1.0, 0.0, 0.0]),
+    ],
+    "icosahedral": [
+        np.array([1.0, 1.0, 1.0]) / math.sqrt(3),
+        np.array([_PHI, 1.0, 0.0]) / math.sqrt(_PHI**2 + 1.0),
+        np.array([1.0, 0.0, 0.0]),
+    ],
+}
+
+SEED_TO_GROUP: dict[str, str] = {
+    "tetrahedron": "tetrahedral",
+    "cube":        "octahedral",
+    "icosahedron": "icosahedral",
+}
+
+
+def fd_point(group: str, u: float, v: float) -> np.ndarray:
+    """Barycentric point in FD(G) on S². foundation.tex eq. (1)."""
+    u, v = float(u), float(v)
+    if u + v > 1.0:
+        u, v = 1.0 - u, 1.0 - v
+    c0, c1, c2 = _FD_CORNERS[group]
+    p = (1.0 - u - v) * c0 + u * c1 + v * c2
+    norm = np.linalg.norm(p)
+    return p / norm if norm > 1e-9 else c0.copy()
+
+
+def symmetrize_g(
+    pts: np.ndarray,
+    prim_fn,
+    center: np.ndarray,
+    radius: float,
+    group: str,
+) -> np.ndarray:
+    """
+    Sym_G(P, φ)(x) = min_{g∈G} P(g·x − φ). foundation.tex eq. (2).
+    pts: (..., 3). Returns (...,).
+    """
+    mats = GROUP_MATRICES[group]   # (|G|, 3, 3)
+    flat = pts.reshape(-1, 3)
+    # transformed: (|G|, N, 3) = mats @ flat.T transposed per element
+    transformed = np.einsum("gij,nj->gni", mats, flat)
+    evals = np.stack([
+        prim_fn(transformed[g], center, radius)
+        for g in range(len(mats))
+    ])  # (|G|, N)
+    result = evals.min(axis=0)     # (N,)
+    return result.reshape(pts.shape[:-1])
+
+
+# ── Grammar evaluator ──────────────────────────────────────────────────────────
 
 class SierpSphereEvaluator:
-    """Evaluates a SierpSphere grammar JSON into a callable SDF."""
+    """
+    Evaluates a G-grammar into a callable SDF (numpy/CPU).
+
+    Grammar schema:
+      seed:       {type: tetrahedron|cube|icosahedron, radius: float}
+      iterations: [{operation, primitive, fd_u, fd_v, distance,
+                    scale_factor, smooth_radius}]
+    """
 
     def __init__(self, grammar: dict):
-        self.grammar = grammar
-        seed = grammar["seed"]
-        self.seed_center = np.array(seed.get("center", [0, 0, 0]), dtype=np.float64)
-        self.seed_radius = float(seed["radius"])
-        self.seed_type = seed.get("type", "sphere")
+        self.grammar  = grammar
+        seed          = grammar.get("seed", {})
+        self.seed_type   = seed.get("type", "cube")
+        self.seed_radius = float(seed.get("radius", 1.0))
+        self.group       = SEED_TO_GROUP.get(self.seed_type, "octahedral")
+        self.iterations  = grammar.get("iterations", [])
 
-        sym_name = grammar.get("symmetry_group", "tetrahedral")
-        self.base_vertices = SYMMETRY_GROUPS[sym_name]()
-
-        self.iterations = grammar.get("iterations", [])
-
-    def _build_ops(self):
-        """
-        Build a flat list of (boolean_fn, sdf_fn, center, radius, smooth_k)
-        by recursively expanding iterations along symmetry axes.
-
-        Each iteration places child primitives at every symmetry vertex,
-        scaled and offset from every "active center" produced by prior iterations.
-        """
-        ops = []
-        # Keep full node history and last-generated frontier.
-        all_nodes = [(self.seed_center.copy(), self.seed_radius)]
-        new_nodes = [(self.seed_center.copy(), self.seed_radius)]
-
-        def eval_at(point: np.ndarray) -> float:
-            seed_sdf_fn = SDF_PRIMITIVES[self.seed_type]
-            d = seed_sdf_fn(point.reshape(1, 3), self.seed_center, self.seed_radius)[0]
-            for b_fn, s_fn, c, r, k in ops:
-                dc = s_fn(point.reshape(1, 3), c, r)[0]
-                d = b_fn(dc, d, k)
-            return float(d)
+    def evaluate(self, pts: np.ndarray) -> np.ndarray:
+        """pts: (..., 3). Returns (...,) signed distances."""
+        origin = np.zeros(3)
+        d = SDF_PRIMITIVES.get(self.seed_type, sdf_box)(pts, origin, self.seed_radius)
 
         for it in self.iterations:
-            bool_fn = BOOLEAN_OPS[it["operation"]]
-            prim_name = it.get("primitive", "sphere")
-            sdf_fn = SDF_PRIMITIVES[prim_name]
-            sf = float(it["scale_factor"])
-            df = float(it.get("distance_factor", 1.0))
-            sk = float(it.get("smooth_radius", 0.0))
+            ptype  = it.get("primitive", "sphere")
+            op     = it.get("operation", "subtract")
+            k      = float(it.get("smooth_radius", 0.0))
+            dist   = float(it.get("distance", 0.7))
+            scale  = float(it.get("scale_factor", 0.3))
+            fd_u   = float(it.get("fd_u", 0.3))
+            fd_v   = float(it.get("fd_v", 0.1))
 
-            apply_to = it.get("apply_to", "all")
-            if apply_to == "all":
-                source_nodes = all_nodes
-            elif apply_to == "surface":
-                # "surface" expands only from nodes currently near the implicit surface.
-                source_nodes = []
-                for c, r in all_nodes:
-                    if abs(eval_at(c)) <= r * 0.25:
-                        source_nodes.append((c, r))
-            else:
-                source_nodes = new_nodes
+            phi = fd_point(self.group, fd_u, fd_v) * dist
+            prim_fn = SDF_PRIMITIVES.get(ptype, sdf_sphere)
+            child   = symmetrize_g(pts, prim_fn, phi, scale, self.group)
 
-            next_nodes = []
-            for parent_center, parent_radius in source_nodes:
-                child_radius = parent_radius * sf
-
-                for v in self.base_vertices:
-                    child_center = parent_center + v * parent_radius * df
-
-                    # For "add": evaluate SDF-so-far at candidate center.
-                    # Skip if center is in void (far from any surface).
-                    if it["operation"] == "add":
-                        d = eval_at(child_center)
-                        if d > child_radius * 0.5:
-                            continue
-
-                    ops.append((bool_fn, sdf_fn, child_center, child_radius, sk))
-                    next_nodes.append((child_center, child_radius))
-
-            all_nodes = all_nodes + next_nodes
-            new_nodes = next_nodes
-
-        return ops
-
-    def evaluate(self, points: np.ndarray) -> np.ndarray:
-        """
-        Evaluate the full SDF at an array of points.
-        points: shape (..., 3)
-        Returns: shape (...)  signed distance values.
-        """
-        seed_sdf = SDF_PRIMITIVES[self.seed_type]
-        d = seed_sdf(points, self.seed_center, self.seed_radius)
-
-        for bool_fn, sdf_fn, center, radius, sk in self._build_ops():
-            d_child = sdf_fn(points, center, radius)
-            d = bool_fn(d_child, d, sk)
+            bool_fn = BOOLEAN_OPS.get(op, smooth_subtraction)
+            d = bool_fn(child, d, k)
 
         return d
 
-    def to_raymarcher_json(self):
-        """
-        Export the SDF description as a flat JSON structure the GLSL
-        raymarcher can consume at runtime.
-        """
-        ops = self._build_ops()
-        result = {
+    def to_raymarcher_json(self) -> dict:
+        """Export grammar for the GLSL WebGL raymarcher."""
+        return {
             "seed": {
-                "type": self.seed_type,
-                "center": self.seed_center.tolist(),
+                "type":   self.seed_type,
+                "center": [0.0, 0.0, 0.0],
                 "radius": self.seed_radius,
             },
-            "operations": [],
+            "group":      self.group,
+            "fd_corners": {g: [c.tolist() for c in cs]
+                           for g, cs in _FD_CORNERS.items()},
+            "iterations": self.iterations,
         }
-        op_name_map = {
-            smooth_union: "add",
-            smooth_subtraction: "subtract",
-            smooth_intersection: "intersect",
-        }
-        prim_name_map = {
-            sdf_sphere: "sphere",
-            sdf_cube: "cube",
-            sdf_octahedron: "octahedron",
-        }
-        for bool_fn, sdf_fn, center, radius, sk in ops:
-            result["operations"].append({
-                "bool_op": op_name_map[bool_fn],
-                "primitive": prim_name_map[sdf_fn],
-                "center": center.tolist(),
-                "radius": float(radius),
-                "smooth_k": float(sk),
-            })
-        return result
 
 
-# ── Marching cubes mesh extraction ────────────────────────────────────
+# ── Mesh extraction ────────────────────────────────────────────────────────────
 
-def extract_mesh(evaluator: SierpSphereEvaluator, resolution=128, bounds=1.8):
-    """
-    Sample the SDF on a regular grid and extract an isosurface
-    via marching cubes.  Returns a trimesh.Trimesh.
-    """
+def extract_mesh(
+    evaluator: SierpSphereEvaluator,
+    resolution: int = 128,
+    bounds: float = 1.8,
+):
+    """Sample SDF on grid, extract isosurface via marching cubes."""
     from skimage.measure import marching_cubes
     import trimesh
 
     lin = np.linspace(-bounds, bounds, resolution)
     X, Y, Z = np.meshgrid(lin, lin, lin, indexing="ij")
-    points = np.stack([X, Y, Z], axis=-1)  # (res, res, res, 3)
+    pts = np.stack([X, Y, Z], axis=-1)
 
-    volume = evaluator.evaluate(points)
-
-    verts, faces, normals, _ = marching_cubes(volume, level=0.0,
-                                               spacing=(2*bounds/resolution,)*3)
-    # Center the mesh
+    volume = evaluator.evaluate(pts)
+    verts, faces, normals, _ = marching_cubes(
+        volume, level=0.0, spacing=(2 * bounds / resolution,) * 3
+    )
     verts -= bounds
-
-    mesh = trimesh.Trimesh(vertices=verts, faces=faces, vertex_normals=normals)
+    mesh = trimesh.Trimesh(vertices=verts, faces=faces,
+                           vertex_normals=normals)
     return filter_largest_component(mesh)
 
 
 def filter_largest_component(mesh):
-    """
-    Keep only the largest connected triangle component.
-    This removes floating islands that can appear in polygonized output.
-    """
     import trimesh
-
     parts = mesh.split(only_watertight=False)
     if len(parts) <= 1:
         return mesh
-    largest = max(parts, key=lambda part: len(part.faces))
+    largest = max(parts, key=lambda p: len(p.faces))
     return trimesh.Trimesh(
         vertices=largest.vertices.copy(),
         faces=largest.faces.copy(),
-        vertex_normals=largest.vertex_normals.copy() if largest.vertex_normals is not None else None,
         process=False,
     )
 
 
-def grammar_to_gltf(grammar: dict, output_path: str = "sierpsphere.glb"):
-    """Full pipeline: grammar → SDF → mesh → GLTF file."""
-    ev = SierpSphereEvaluator(grammar)
+def grammar_to_gltf(grammar: dict, output_path: str = "out.glb") -> str:
+    ev  = SierpSphereEvaluator(grammar)
     res = grammar.get("render", {}).get("resolution", 128)
     bnd = grammar.get("render", {}).get("bounds", 1.8)
     mesh = extract_mesh(ev, resolution=res, bounds=bnd)
