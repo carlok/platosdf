@@ -111,8 +111,8 @@ def mutate(grammar: dict, rate: float = 0.55) -> dict:
         if random.random() < rate:
             u = it.get("fd_u", 0.3)
             v = it.get("fd_v", 0.1)
-            u = float(max(0.0, min(1.0, u + random.gauss(0, 0.15))))
-            v = float(max(0.0, min(1.0, v + random.gauss(0, 0.15))))
+            u = float(max(0.0, min(1.0, u + random.gauss(0, 0.22))))
+            v = float(max(0.0, min(1.0, v + random.gauss(0, 0.22))))
             if u + v > 1.0:
                 total = u + v
                 u, v = u / total, v / total

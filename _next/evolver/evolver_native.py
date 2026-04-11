@@ -234,6 +234,12 @@ def next_generation(population, results, cfg):
         )
         if best_idx is not None:
             next_pop.append(copy.deepcopy(population[best_idx]))
+    # Fresh blood: inject random individuals to prevent convergence
+    n_fresh = max(1, cfg["pop_size"] // 8)  # ~12% fresh each epoch
+    for _ in range(n_fresh):
+        if len(next_pop) < cfg["pop_size"]:
+            next_pop.extend(diverse_population(1))
+
     while len(next_pop) < cfg["pop_size"]:
         if np.random.random() < cfg["crossover_rate"] and len(population) >= 2:
             pa = tournament_select(population, fitnesses, cfg["tournament_k"])
