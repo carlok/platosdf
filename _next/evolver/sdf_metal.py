@@ -321,9 +321,11 @@ def extract_mesh_metal(
         return None
     parts = mesh.split(only_watertight=False)
     if len(parts) > 1:
-        max_faces = max(len(p.faces) for p in parts)
-        parts = [p for p in parts if len(p.faces) >= max_faces * 0.15]
-        mesh = trimesh.util.concatenate(parts) if len(parts) > 1 else parts[0]
+        # Always keep only the single largest component.
+        # Multi-component shapes are unprintable; equal-sized blobs from
+        # orbit fragmentation (e.g. Oh intersect splitting into 8 clusters)
+        # must not survive into fitness evaluation or GLB export.
+        mesh = max(parts, key=lambda p: len(p.faces))
         mesh = trimesh.Trimesh(vertices=mesh.vertices.copy(),
                                faces=mesh.faces.copy(), process=False)
     return mesh if len(mesh.faces) > 0 else None
