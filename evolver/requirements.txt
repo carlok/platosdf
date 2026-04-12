@@ -1,4 +1,0 @@
-numpy
-trimesh
-scipy
-scikit-image

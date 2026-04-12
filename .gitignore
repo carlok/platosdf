@@ -20,6 +20,7 @@ venv/
 .claude/
 
 gallery/
+grammar/
 
 *.aux
 *.log
@@ -28,5 +29,3 @@ gallery/
 *.gz
 *.toc
 .venv/
-_next/gallery/
-_next/grammar/

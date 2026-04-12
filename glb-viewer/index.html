@@ -578,6 +578,10 @@ function loadGLB(file) {
         n.material = mat;
         n.castShadow = true;
         n.receiveShadow = true;
+        // Ensure smooth normals (marching-cubes GLBs may have only face normals)
+        if (n.geometry && !n.geometry.attributes.normal) {
+          n.geometry.computeVertexNormals();
+        }
       }
     });
 
@@ -632,14 +636,6 @@ resize();
 
 let turntableAngle = 0;
 let lastTime = performance.now();
-let needsRender = true;
-
-function requestRender() { needsRender = true; }
-
-// Trigger render on any controls interaction or panel input
-controls.addEventListener('change', requestRender);
-document.getElementById('panel').addEventListener('input', requestRender);
-document.getElementById('panel').addEventListener('change', requestRender);
 
 (function loop(now) {
   requestAnimationFrame(loop);
@@ -657,15 +653,10 @@ document.getElementById('panel').addEventListener('change', requestRender);
     offset.z = r * Math.cos(turntableAngle);
     camera.position.copy(controls.target).add(offset);
     camera.lookAt(controls.target);
-    needsRender = true;
   }
 
-  if (controls.update()) needsRender = true;
-
-  if (needsRender) {
-    renderer.render(scene, camera);
-    needsRender = false;
-  }
+  controls.update();
+  renderer.render(scene, camera);
 })(performance.now());
 
 // ── File loading ─────────────────────────────────────────────────────────────
@@ -715,18 +706,15 @@ function applyPreset(key) {
   document.getElementById('val-metal').textContent = p.metalness.toFixed(2);
   document.getElementById('val-rough').textContent = p.roughness.toFixed(2);
 
-  // Suggest matching background color
-  const bgC = PRESET_BG[key] || '#111111';
-  document.getElementById('bg-color').value = bgC;
-  scene.background = new THREE.Color(bgC);
-
   // Mark active
   presetGrid.querySelectorAll('.preset-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.key === key));
 }
 
-// Start with bronze
+// Start with bronze; defer Studio env to after first render so PMREMGenerator
+// has a fully initialised WebGL context to work with.
 applyPreset('bronze');
+requestAnimationFrame(() => applyProceduralEnv(ENV_DEFS['Studio']));
 
 // ── Material sliders ─────────────────────────────────────────────────────────
 
@@ -743,23 +731,27 @@ function slider(id, valId, setter) {
 
 document.getElementById('mat-color').addEventListener('input', e => {
   mat.color.set(e.target.value);
+  mat.needsUpdate = true;
 });
-slider('mat-metal', 'val-metal', v => { mat.metalness = v; });
-slider('mat-rough', 'val-rough', v => { mat.roughness = v; });
-slider('mat-env',   'val-env',   v => { mat.envMapIntensity = v; });
+slider('mat-metal', 'val-metal', v => { mat.metalness = v; mat.needsUpdate = true; });
+slider('mat-rough', 'val-rough', v => { mat.roughness = v; mat.needsUpdate = true; });
+slider('mat-env',   'val-env',   v => { mat.envMapIntensity = v; mat.needsUpdate = true; });
 document.getElementById('mat-emissive').addEventListener('input', e => {
   mat.emissive.set(e.target.value);
+  mat.needsUpdate = true;
 });
-slider('mat-emint', 'val-emint', v => { mat.emissiveIntensity = v; });
+slider('mat-emint', 'val-emint', v => { mat.emissiveIntensity = v; mat.needsUpdate = true; });
 
 // ── Light controls ───────────────────────────────────────────────────────────
 
-document.getElementById('light-key-color').addEventListener('input', e =>
-  keyLight.color.set(e.target.value));
+document.getElementById('light-key-color').addEventListener('input', e => {
+  keyLight.color.set(e.target.value);
+});
 slider('light-key-int', 'val-key-int', v => { keyLight.intensity = v; });
 
-document.getElementById('light-fill-color').addEventListener('input', e =>
-  fillLight.color.set(e.target.value));
+document.getElementById('light-fill-color').addEventListener('input', e => {
+  fillLight.color.set(e.target.value);
+});
 slider('light-fill-int', 'val-fill-int', v => { fillLight.intensity = v; });
 slider('light-amb', 'val-amb', v => { ambLight.intensity = v; });
 
@@ -774,11 +766,11 @@ document.querySelectorAll('.bg-tab').forEach(tab => {
   });
 });
 
-// Color background
-document.getElementById('bg-color').addEventListener('input', e => {
-  scene.background = new THREE.Color(e.target.value);
-  scene.environment = null;
-});
+// Color background — listen to both input (live drag) and change (picker close)
+function setBgColor(hex) { scene.background = new THREE.Color(hex); }
+const bgColorEl = document.getElementById('bg-color');
+bgColorEl.addEventListener('input',  e => setBgColor(e.target.value));
+bgColorEl.addEventListener('change', e => setBgColor(e.target.value));
 
 // ── Environment maps (procedural) ────────────────────────────────────────────
 
@@ -836,15 +828,13 @@ function applyProceduralEnv(def) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
 
-  // Use a PMREMGenerator for env lighting
+  // Use a PMREMGenerator for env lighting only — do NOT touch scene.background
+  // so the background colour control stays fully independent.
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const cubeRT = new THREE.WebGLCubeRenderTarget(size);
-  // Simpler: just set a color background + generate from color
-  const col = new THREE.Color(def.side);
-  scene.background = col;
   const envMap = pmrem.fromEquirectangular(buildGradientTex(def, renderer)).texture;
   scene.environment = envMap;
   mat.envMapIntensity = parseFloat(document.getElementById('mat-env').value);
+  mat.needsUpdate = true;
   pmrem.dispose();
 }
 
@@ -861,6 +851,7 @@ function buildGradientTex(def, renderer) {
     }
   }
   const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;

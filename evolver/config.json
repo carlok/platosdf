@@ -1,15 +1,14 @@
 {
-  "pop_size": 24,
+  "pop_size": 36,
   "n_epochs": 50,
   "elitism_k": 2,
-  "tournament_k": 2,
-  "mutation_rate": 0.55,
+  "tournament_k": 3,
+  "mutation_rate": 0.65,
   "crossover_rate": 0.45,
-  "eval_resolution": 28,
+  "eval_resolution": 40,
   "save_resolution": 64,
   "save_top_k": 5,
   "target_mm": 80.0,
   "bounds": 1.8,
-  "gallery_dir": "/app/gallery",
-  "grammar_dir": "/app/grammar"
+  "gallery_dir": "gallery"
 }
