@@ -826,15 +826,13 @@ function applyProceduralEnv(def) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
 
-  // Use a PMREMGenerator for env lighting
+  // Use a PMREMGenerator for env lighting only — do NOT touch scene.background
+  // so the background colour control stays fully independent.
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const cubeRT = new THREE.WebGLCubeRenderTarget(size);
-  // Simpler: just set a color background + generate from color
-  const col = new THREE.Color(def.side);
-  scene.background = col;
   const envMap = pmrem.fromEquirectangular(buildGradientTex(def, renderer)).texture;
   scene.environment = envMap;
   mat.envMapIntensity = parseFloat(document.getElementById('mat-env').value);
+  mat.needsUpdate = true;
   pmrem.dispose();
 }
 
