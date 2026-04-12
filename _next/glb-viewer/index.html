@@ -711,9 +711,10 @@ function applyPreset(key) {
     b.classList.toggle('active', b.dataset.key === key));
 }
 
-// Start with bronze + Studio env so metallic materials have IBL from the start
+// Start with bronze; defer Studio env to after first render so PMREMGenerator
+// has a fully initialised WebGL context to work with.
 applyPreset('bronze');
-applyProceduralEnv(ENV_DEFS['Studio']);
+requestAnimationFrame(() => applyProceduralEnv(ENV_DEFS['Studio']));
 
 // ── Material sliders ─────────────────────────────────────────────────────────
 
@@ -765,10 +766,11 @@ document.querySelectorAll('.bg-tab').forEach(tab => {
   });
 });
 
-// Color background
-document.getElementById('bg-color').addEventListener('input', e => {
-  scene.background = new THREE.Color(e.target.value);
-});
+// Color background — listen to both input (live drag) and change (picker close)
+function setBgColor(hex) { scene.background = new THREE.Color(hex); }
+const bgColorEl = document.getElementById('bg-color');
+bgColorEl.addEventListener('input',  e => setBgColor(e.target.value));
+bgColorEl.addEventListener('change', e => setBgColor(e.target.value));
 
 // ── Environment maps (procedural) ────────────────────────────────────────────
 
