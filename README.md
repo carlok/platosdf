@@ -65,14 +65,6 @@ pip install torch trimesh scipy scikit-image numpy pytest
 
 ## Run
 
-```bash
-cd evolver
-python evolver_native.py --epochs 10 --workers 8
-python evolver_native.py --resume --epochs 10
-```
-
-### STL-first run (metal printing)
-
 For direct upload to an SLM/DMLS service (e.g. weerg, Xometry, i.materialise):
 
 ```bash
@@ -90,6 +82,12 @@ python evolver_native.py \
 `--mode resonant` constrains placements to group-theoretically natural positions, which tend to produce cleaner, more printable geometry.
 
 The fitness hard gate already rejects shapes below 0.5 mm wall thickness before they reach the STL stage, so every exported STL has passed the minimum wall check.
+
+Resume a previous run:
+
+```bash
+python evolver_native.py --mode resonant --resume --export-stl --workers 8
+```
 
 Output is written to `gallery/` (relative to `evolver/`):
 
