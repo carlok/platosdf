@@ -14,3 +14,9 @@ def test_invalid_payload_returns_400_on_evaluate() -> None:
     assert resp.status_code == 400
     assert "error" in resp.get_json()
 
+
+def test_gallery_rejects_invalid_filename() -> None:
+    client = app.test_client()
+    resp = client.get("/api/gallery/1/.secret.json")
+    assert resp.status_code == 400
+

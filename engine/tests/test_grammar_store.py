@@ -16,6 +16,18 @@ def test_list_grammar_names_excludes_schema(tmp_path: Path) -> None:
     assert "sierpinski_cube" in names
 
 
+def test_load_grammar_rejects_path_traversal(tmp_path: Path) -> None:
+    grammar_dir = tmp_path / "grammar"
+    grammar_dir.mkdir()
+    for bad_name in ("../secret", "..", "foo/bar", ".hidden"):
+        try:
+            load_grammar(grammar_dir, bad_name)
+        except FileNotFoundError:
+            pass
+        else:
+            raise AssertionError(f"expected FileNotFoundError for name {bad_name!r}")
+
+
 def test_load_grammar_cube_seed_type(tmp_path: Path) -> None:
     grammar_dir = tmp_path / "grammar"
     grammar_dir.mkdir()
